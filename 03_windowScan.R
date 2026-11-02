@@ -6,9 +6,10 @@
 #   1. PEER recomputed on the window donors; cis-eQTL scan (all genes, all cis
 #      variants with MAC >= MIN_MAC in the window);
 #   2. eGenes: lead p x Meff, BH across genes, q < GENE_FDR;
-#   3. PEER recomputed on the out-of-window donors; each eGene's lead variant
-#      re-tested there;
-#   4. vanishing hit: out-of-window p > VANISH_P and window vs out-of-window
+#   3. 24 h reference: as many donors as in the window, drawn at random from
+#      all donors (about 1/8 overlap with the window); PEER recomputed there
+#      and each eGene's lead variant re-tested;
+#   4. vanishing hit: reference p > VANISH_P and window vs reference
 #      difference z test p < HET_P.
 #
 # Run:     sbatch 03_windowScan.sh          (array: N_TISSUES x blocks; after 02)
@@ -42,7 +43,8 @@ geno <- map(set_names(names(tis$cis)), \(chr) list(G = readRDS(paste0(GENO_DIR, 
 runPermutation <- function(perm) {
   t0  <- Sys.time()
   win <- dipWindow(permutedRadian(tis$radian, perm, tissueIdx))
-  out <- map(seq_len(N_WINDOWS), \(w) scanWindow(tis, geno, win == w))
+  out <- map(seq_len(N_WINDOWS), \(w) scanWindow(tis, geno, win == w,
+    referenceSample(length(win), sum(win == w), perm, tissueIdx, w)))
   counts <- map_dfr(seq_len(N_WINDOWS), \(w) out[[w]]$counts %>% mutate(window = w)) %>%
     mutate(tissue = tissueName, perm = perm, .before = 1)
   hits <- if (perm == 0)

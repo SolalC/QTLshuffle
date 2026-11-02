@@ -53,14 +53,14 @@ N_WINDOWS     <- 8          # non-overlapping 3 h DIP windows (2*pi / 8 radians 
 MIN_WINDOW_N  <- 60         # windows with fewer donors are skipped (NA counts)
 CIS_WINDOW    <- 1e6        # bp either side of the TSS
 MAF_THRESHOLD <- 0.01       # minimum MAF across the tissue's donors
-MIN_MAC       <- 10         # minimum minor allele count within a window / out-of-window set
+MIN_MAC       <- 10         # minimum minor allele count within a window / 24 h reference sample
 N_PEER        <- 10         # PEER factors, recomputed within every donor subset
 PEER_ITER     <- 1000       # PEER maximum iterations
 MEFF_BLOCK    <- 200        # eigenMT-style blocks of consecutive cis variants
 MEFF_VAR      <- 0.995      # share of LD-matrix variance retained per block
 GENE_FDR      <- 0.05       # BH FDR across genes on Meff-corrected lead p-values
-VANISH_P      <- 0.05       # out-of-window lead-variant p above this ...
-HET_P         <- 0.05       # ... and window vs out-of-window heterogeneity p below this
+VANISH_P      <- 0.05       # 24 h reference lead-variant p above this ...
+HET_P         <- 0.05       # ... and window vs reference heterogeneity p below this
 N_PERM        <- .envNum('QTLSHUFFLE_N_PERM', 1000)   # permutations of DIP (0 = observed)
 PERM_BLOCK    <- .envNum('QTLSHUFFLE_PERM_BLOCK', 20) # permutations per SLURM task
 SEED          <- 20261102

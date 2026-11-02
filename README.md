@@ -21,8 +21,8 @@ where b is the 24 h mean effect and γ1, γ2 the genotype effect on the rhythm. 
 | Variants | ±1 Mb of the TSS; MAF ≥ 1 % in the tissue; minor allele count ≥ 10 in each donor subset tested |
 | Model | `y ~ g + sex + platform + pcr + PC1-5 + 10 PEER factors`; PEER recomputed in every donor subset |
 | eGene | lead p × Meff (eigenMT-style), then BH across genes, q < 0.05 |
-| Re-test | the window lead variant in the out-of-window donors (PEER recomputed there) |
-| Vanishing hit | p_out > 0.05 and z = (β_win − β_out) / √(SE_win² + SE_out²) with p < 0.05 (Cochran's Q, K = 2) |
+| 24 h reference | per window, n_W donors drawn at random from all donors over 24 h (about 1/8 are window donors); PEER recomputed there; the window lead variant re-tested |
+| Vanishing hit | p_24h > 0.05 and z = (β_win − β_24h) / √(SE_win² + SE_24h²) with p < 0.05 (Cochran's Q, K = 2; conservative because of the shared donors) |
 | Null | DIP permuted across donors within tissue, 1000 times; every step re-run |
 | Test | empirical p = (1 + #{null ≥ observed}) / (1 + B), for nHits, nVanish, and nVanish in rhythmic vs non-rhythmic genes |
 
@@ -46,7 +46,7 @@ All paths and constants are in `00_config.R`. Each input path can be overridden 
 |---|---|
 | `genotypes/` | `<chr>.rds`: donor × variant dosages and variant info |
 | `tissues/` | `selectedTissues.csv`; `<tissue>.rds`: expression, fixed covariates, DIP, cis map, Meff, rhythmic labels |
-| `windowCounts/` | `<tissue>_block<b>.csv`: one row per permutation × window (nW, nO, nGenes, nHits, nVanish, rhythmic split, nOutUntestable) |
+| `windowCounts/` | `<tissue>_block<b>.csv`: one row per permutation × window (nW, n24h, nShared, nGenes, nHits, nVanish, rhythmic split, nUntestable24h) |
 | `windowHits/` | `<tissue>_observed.csv`: hit-level table for the observed DIP |
 | `summary/` | `overall.csv`, `perTissue.csv`, null histograms, `missingPermutations.csv` if any task is incomplete |
 

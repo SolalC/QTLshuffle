@@ -3,7 +3,7 @@
 #
 #   Data loading     loadDIP, loadGenotypes, gtexDonorId, tissueNames,
 #                    selectTissues, loadTissue
-#   Windows          dipWindow, permutedRadian
+#   Windows          dipWindow, permutedRadian, referenceSample
 #   Linear algebra   covariateBasis, residualise, meanImpute, minorAlleleCount
 #   Multiple tests   effectiveTests
 #   Latent factors   runPEER
@@ -87,6 +87,14 @@ permutedRadian <- function(radian, perm, tissueIdx) {
   if (perm == 0) return(radian)
   set.seed(SEED + 10000 * tissueIdx + perm)
   sample(radian)
+}
+
+# 24 h reference sample for one window: nW donors drawn at random from all the
+# tissue's donors, whatever their DIP, so about 1/N_WINDOWS of them are also
+# window donors. Seeded by tissue, permutation and window.
+referenceSample <- function(nDonor, nW, perm, tissueIdx, window) {
+  set.seed(SEED + 1e6 * tissueIdx + 100 * perm + window)
+  sort(sample(nDonor, nW))
 }
 
 # --- Linear algebra ------------------------------------------------------------
@@ -197,27 +205,30 @@ leadVariantTest <- function(tis, geno, rows, Q, hits) {
   pmap_dfr(list(hits$gene, hits$chr, hits$col), \(gene, chr, col) {
     g <- meanImpute(geno[[chr]]$G[tis$genoRow[rows], col, drop = FALSE])
     if (minorAlleleCount(g) < MIN_MAC)
-      return(tibble(beta_out = NA_real_, se_out = NA_real_, p_out = NA_real_))
+      return(tibble(beta_24h = NA_real_, se_24h = NA_real_, p_24h = NA_real_))
     gr  <- residualise(g, Q)
     sxx <- sum(gr^2)
     e   <- Er[, gene]
     b   <- sum(gr * e) / sxx
     se  <- sqrt(max(sum(e^2) - b^2 * sxx, 0) / df / sxx)
-    tibble(beta_out = b, se_out = se, p_out = 2 * pt(-abs(b / se), df))
+    tibble(beta_24h = b, se_24h = se, p_24h = 2 * pt(-abs(b / se), df))
   })
 }
 
 # One window: eGenes among the window donors (Meff-corrected lead p, BH across
-# genes), then the lead variant of each eGene re-tested on the out-of-window
-# donors. A vanishing hit has out-of-window p > VANISH_P and a significant
-# window vs out-of-window difference (z test, p < HET_P).
+# genes), then the lead variant of each eGene re-tested on a 24 h reference
+# sample of the same size (rowsR, see referenceSample). A vanishing hit has
+# reference p > VANISH_P and a significant window vs reference difference
+# (z test, p < HET_P). The two samples share about 1/N_WINDOWS of their donors,
+# so the z test, which assumes independence, is conservative.
 # Returns list(counts = one row, hits = hit-level table).
-scanWindow <- function(tis, geno, inWindow) {
-  rowsW <- which(inWindow); rowsO <- which(!inWindow)
-  base  <- tibble(nW = length(rowsW), nO = length(rowsO))
+scanWindow <- function(tis, geno, inWindow, rowsR) {
+  rowsW <- which(inWindow)
+  base  <- tibble(nW = length(rowsW), n24h = length(rowsR),
+                  nShared = length(intersect(rowsW, rowsR)))
   empty <- base %>% mutate(nGenes = NA_integer_, nHits = NA_integer_,
                            nVanish = NA_integer_, nHitsRhythmic = NA_integer_,
-                           nVanishRhythmic = NA_integer_, nOutUntestable = NA_integer_)
+                           nVanishRhythmic = NA_integer_, nUntestable24h = NA_integer_)
   if (length(rowsW) < MIN_WINDOW_N) return(list(counts = empty, hits = NULL))
 
   lead <- cisScan(tis, geno, rowsW, subsetBasis(tis, rowsW)) %>%
@@ -226,12 +237,12 @@ scanWindow <- function(tis, geno, inWindow) {
   hits <- lead %>% filter(qGene < GENE_FDR)
 
   if (nrow(hits)) {
-    hits <- bind_cols(hits, leadVariantTest(tis, geno, rowsO, subsetBasis(tis, rowsO), hits)) %>%
-      mutate(z = (beta - beta_out) / sqrt(se^2 + se_out^2),
+    hits <- bind_cols(hits, leadVariantTest(tis, geno, rowsR, subsetBasis(tis, rowsR), hits)) %>%
+      mutate(z = (beta - beta_24h) / sqrt(se^2 + se_24h^2),
              pHet = 2 * pnorm(-abs(z)),
-             vanish = !is.na(p_out) & p_out > VANISH_P & pHet < HET_P)
+             vanish = !is.na(p_24h) & p_24h > VANISH_P & pHet < HET_P)
   } else {
-    hits <- hits %>% mutate(beta_out = numeric(), se_out = numeric(), p_out = numeric(),
+    hits <- hits %>% mutate(beta_24h = numeric(), se_24h = numeric(), p_24h = numeric(),
                             z = numeric(), pHet = numeric(), vanish = logical())
   }
 
@@ -241,6 +252,6 @@ scanWindow <- function(tis, geno, inWindow) {
     nVanish         = sum(hits$vanish),
     nHitsRhythmic   = sum(hits$rhythmic),
     nVanishRhythmic = sum(hits$vanish & hits$rhythmic),
-    nOutUntestable  = sum(is.na(hits$p_out)))
+    nUntestable24h  = sum(is.na(hits$p_24h)))
   list(counts = counts, hits = hits)
 }
