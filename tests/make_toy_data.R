@@ -16,7 +16,7 @@
 suppressPackageStartupMessages({ library(tidyverse); library(data.table) })
 set.seed(20261102)
 out <- commandArgs(trailingOnly = TRUE)[1]
-for (d in c('expr', 'cov', 'harmonic', 'chiral'))
+for (d in c('expr', 'cov', 'harmonic'))
   dir.create(file.path(out, d), recursive = TRUE, showWarnings = FALSE)
 
 nDonor <- 600; nVarChr <- 300; nGeneChr <- 150
@@ -72,5 +72,3 @@ writeTissue <- function(name, n) {
 }
 writeTissue('ToyA', 560)
 writeTissue('ToyB', 520)
-# One gene stands in for a CHIRAL input gene and should be dropped by 02:
-writeLines('ENSG02150', file.path(out, 'chiral', 'CHIRAL_genes.txt'))

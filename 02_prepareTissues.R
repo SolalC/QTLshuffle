@@ -3,7 +3,6 @@
 #
 # Selects the N_TISSUES tissues with the most donors, then for one of them:
 #   - expression, fixed covariates (sex, platform, pcr, PC1-5) and DIP;
-#   - drops the genes CHIRAL used to infer DIP (if CHIRAL_GENES exists);
 #   - labels genes rhythmic over 24 h (cd-eQTL step 01, Bonferroni < 0.05);
 #   - lists cis variants (+/- CIS_WINDOW of the TSS, tissue MAF >= MAF_THRESHOLD);
 #   - computes each gene's effective number of tests (all donors of the tissue).
@@ -31,17 +30,6 @@ fwrite(tissues, paste0(TISSUE_DIR, 'selectedTissues.csv'))
 tissueName <- tissues$tissue[i]
 message('Tissue: ', tissueName, ' (', tissues$n[i], ' donors)')
 tis <- loadTissue(tissueName, dip)
-
-# Genes used by CHIRAL to infer DIP:
-if (file.exists(CHIRAL_GENES)) {
-  chiral <- sub('\\..*', '', readLines(CHIRAL_GENES))
-  drop <- sub('\\..*', '', colnames(tis$E)) %in% chiral
-  tis$E <- tis$E[, !drop, drop = FALSE]
-  tis$pos <- tis$pos[!drop]
-  message('Dropped ', sum(drop), ' CHIRAL genes')
-} else {
-  warning('CHIRAL_GENES not found (', CHIRAL_GENES, '): no genes excluded')
-}
 
 # 24 h rhythmicity labels:
 harmonic <- fread(paste0(HARMONIC_DIR, tissueName, '_LRT_harmonic_linear.csv'))

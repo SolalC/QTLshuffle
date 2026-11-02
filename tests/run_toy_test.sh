@@ -17,7 +17,6 @@ export QTLSHUFFLE_GTEX_COV_DIR="$toy/cov/"
 export QTLSHUFFLE_GENOTYPE_PLINK="$toy/genotypes.rds"
 export QTLSHUFFLE_DIP_FILE="$toy/DIP.RData"
 export QTLSHUFFLE_HARMONIC_DIR="$toy/harmonic/"
-export QTLSHUFFLE_CHIRAL_GENES="$toy/chiral/CHIRAL_genes.txt"
 export QTLSHUFFLE_N_TISSUES=2
 export QTLSHUFFLE_N_PERM=39
 export QTLSHUFFLE_PERM_BLOCK=20

@@ -8,7 +8,6 @@ overall <- fread(file.path(res, 'summary', 'overall.csv'))
 print(overall)
 if (file.exists(file.path(res, 'summary', 'missingPermutations.csv'))) fail('missing permutations')
 tisA <- readRDS(file.path(res, 'tissues', 'ToyA.rds'))
-if ('ENSG02150.1' %in% tisA$genes$gene_id) fail('CHIRAL gene not dropped')
 if (ncol(tisA$cov) != 8) fail('expected 8 fixed covariates, found ', ncol(tisA$cov))
 
 v <- overall[statistic == 'nVanish']

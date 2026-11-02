@@ -17,7 +17,7 @@ where b is the 24 h mean effect and γ1, γ2 the genotype effect on the rhythm. 
 | Data | GTEx v10 expression and covariates, GTEx WGS genotypes, donor internal phase (DIP, CHIRAL) |
 | Tissues | the `N_TISSUES` = 10 tissues with the most donors that have a DIP |
 | Windows | 8 non-overlapping 3 h DIP windows, fixed in advance; windows with < 60 donors are skipped |
-| Genes | all expressed genes, minus the genes CHIRAL uses to infer DIP |
+| Genes | all expressed genes |
 | Variants | ±1 Mb of the TSS; MAF ≥ 1 % in the tissue; minor allele count ≥ 10 in each donor subset tested |
 | Model | `y ~ g + sex + platform + pcr + PC1-5 + 10 PEER factors`; PEER recomputed in every donor subset |
 | eGene | lead p × Meff (eigenMT-style), then BH across genes, q < 0.05 |
@@ -54,7 +54,7 @@ All paths and constants are in `00_config.R`. Each input path can be overridden 
 
 `bash tests/run_toy_test.sh` simulates two toy tissues (phase, amplitude and mean eQTL, rhythmic-only and null genes), runs 01 to 04 with 39 permutations, and checks that
 
-- no permutation is missing, the CHIRAL stand-in gene is dropped, and 8 fixed covariates are kept;
+- no permutation is missing and 8 fixed covariates are kept;
 - observed vanishing hits exceed the 95th percentile of the null;
 - mean eQTL rarely vanish (≤ 20 %).
 
@@ -64,7 +64,6 @@ Toy result: 81 hits (null mean 31), 26 vanishing (null mean 2.8, empirical p = 0
 
 - The `peer` R package on Bunya and its run time. PEER is the critical path: 10 tissues × 1001 DIP sets × 8 windows × 2 subsets ≈ 160 000 fits. Time one `03` task before submitting the array.
 - `genio::read_plink` on the real genotype files, and the real input paths.
-- `CHIRAL_GENES`: the file listing the CHIRAL input genes does not exist yet. Until it does, no gene is excluded and a warning is printed.
 
 ## Requirements
 

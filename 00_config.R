@@ -37,9 +37,6 @@ GENOTYPE_PLINK  <- .envPath('QTLSHUFFLE_GENOTYPE_PLINK', paste0(
 DIP_FILE        <- .envPath('QTLSHUFFLE_DIP_FILE', paste0(CIRCADIAN_ROOT, 'Data/CHIRAL/DIP.RData'))
 # 24 h rhythmicity of every gene (cd-eQTL step 01), used only to label genes
 HARMONIC_DIR    <- .envDir('QTLSHUFFLE_HARMONIC_DIR', paste0(CIRCADIAN_ROOT, 'Results/inferred/harmonicReg/'))
-# Genes used by CHIRAL to infer DIP, one Ensembl ID per line (no header).
-# TODO: provide this file; while it is missing no genes are excluded.
-CHIRAL_GENES    <- .envPath('QTLSHUFFLE_CHIRAL_GENES', paste0(ROOT, 'Data/CHIRAL_genes.txt'))
 
 # --- Intermediate results ------------------------------------------------------
 GENO_DIR    <- paste0(RESULTS_DIR, 'genotypes/')     # 01: per-chromosome dosages
