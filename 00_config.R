@@ -22,7 +22,7 @@ suppressPackageStartupMessages({
 .envPath <- function(var, default) Sys.getenv(var, default)
 .envNum  <- function(var, default) as.numeric(Sys.getenv(var, default))
 
-ROOT        <- .envDir('QTLSHUFFLE_ROOT', '/scratch/project_mnt/S0007/solal/QTLshuffle/')
+ROOT        <- .envDir('QTLSHUFFLE_ROOT', '/scratch/user/uqschauq/QTLshuffle/')
 RESULTS_DIR <- .envDir('QTLSHUFFLE_RESULTS', paste0(ROOT, 'Results/'))
 
 # --- Inputs (same files as the cd-eQTL analysis) ---------------------------------
