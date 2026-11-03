@@ -18,7 +18,14 @@ The full design on one tissue and a small gene set. Use it to settle the experim
 
 ## Differences from tensorQTL
 
-- **Permutations.** tensorQTL permutes the covariate-residualised expression and correlates it with the residualised genotypes. Permuted residuals are no longer orthogonal to the covariates, so their correlations have variance ≈ 1/(n − 1) instead of 1/(n − k − 1). With about 19 covariates and about 100 window donors, that null is too narrow. In a simulation (n = 80, 19 covariates, no genetic effect), this scheme gave beta-approximated p < 0.05 for 15 % of genes. Here, the permuted residuals are residualised again (Freedman–Lane), which gave 8 % in 200 null genes, with trueDof ≈ n − k − 1. This matters at window sample sizes; at full GTEx sizes the difference is small.
+- **Permutations.** tensorQTL permutes the covariate-residualised expression and correlates it with the residualised genotypes. Permuted residuals are no longer orthogonal to the covariates, so their correlations have variance ≈ 1/(n − 1) instead of 1/(n − k − 1). With about 19 covariates and about 100 window donors, that null is too narrow. Here, the permuted residuals are residualised again (Freedman–Lane), which restores trueDof ≈ n − k − 1. `tests/null_calibration.R` simulates 2000 genes with no genetic effect (n = 80, 19 covariates, 1000 permutations each):
+
+  | Scheme | p < 0.05 | p < 0.01 | p < 0.001 | KS test vs uniform |
+  |---|---|---|---|---|
+  | Freedman–Lane (this prototype) | 4.8 % | 0.85 % | 0 % | p = 0.13 |
+  | Plain residual permutation (tensorQTL) | 22 % | 5.6 % | 1.0 % | p < 10⁻¹⁵ |
+
+  The 2000 genes share 50 cis variant sets, so these rates are not fully independent. This matters at window sample sizes; at full GTEx sizes the difference is small.
 - **q-value with 50 genes.** If no gene has p ≥ 0.85, π0 is estimated as 0 and `qvalue` fails. The window then falls back to BH and records `qMethod = 'BH'`.
 
 ## Run order (Bunya)
