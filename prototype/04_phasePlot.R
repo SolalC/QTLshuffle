@@ -17,8 +17,11 @@
 #     y ~ g + g:cos(DIP) + g:sin(DIP) + cos(DIP) + sin(DIP) + covariates,
 #     drawn as the expected window effect b + lambda (g1 cos t + g2 sin t),
 #     lambda = sinc(w / 2) for a window of w radians (0.97 for 3 h).
-# The variant is chosen on all donors, which include the window donors, so the
-# points are not independent of the choice. This figure is descriptive.
+# Only variants with a minor allele count >= MIN_MAC in every window are
+# candidates. The variant is chosen on all donors, which include the window
+# donors, so the points are not independent of the choice, and for GxTLead the
+# p-value is the minimum over the gene's nVar variants (shown in each panel).
+# This figure is descriptive.
 #
 # Run:     sbatch 04_phasePlot.sh            (after 01; 1 + N_WINDOWS PEER fits)
 # Outputs: Results_prototype/phasePlot/{windowBeta,cosinorFit}.csv,
@@ -34,8 +37,24 @@ d <- readRDS(DATA_FILE)
 radian  <- d$tis$radian %% (2 * pi)
 cosr    <- cos(radian); sinr <- sin(radian)
 allRows <- seq_along(radian)
-genes   <- d$genes$gene_id
-cisG    <- \(gene, rows) d$G[rows, d$cisIdx[[gene]], drop = FALSE]
+win     <- dipWindow(radian)
+
+# Candidate variants: testable in every window, i.e. minor allele count >=
+# MIN_MAC among the donors of each window with >= MIN_WINDOW_N donors.
+# Without this, rare variants (MAF ~1-3%) chosen on all donors have no
+# estimate in most windows, and their G x time fit rests on a few carriers.
+usedWindows <- which(tabulate(win, N_WINDOWS) >= MIN_WINDOW_N)
+testable <- Reduce(`&`, map(usedWindows, \(w) {
+  ac <- colSums(d$G[win == w, , drop = FALSE], na.rm = TRUE)
+  pmin(ac, 2 * sum(win == w) - ac) >= MIN_MAC
+}))
+message(sum(testable), ' of ', ncol(d$G), ' variants testable in all ', length(usedWindows), ' windows')
+genes <- keep(d$genes$gene_id, \(gene) any(testable[d$cisIdx[[gene]]]))
+message(length(genes), ' of ', nrow(d$genes), ' genes have at least one testable cis variant')
+cisG <- \(gene, rows) {
+  idx <- d$cisIdx[[gene]]
+  d$G[rows, idx[testable[idx]], drop = FALSE]
+}
 
 # --- Variant choice on all donors ----------------------------------------------
 CAll  <- subsetCovariates(d$tis, allRows)
@@ -65,7 +84,6 @@ cosinor <- leads %>% mutate(fit = map2(gene, variant, \(gene, variant) {
 })) %>% unnest(fit)
 
 # --- Effect in each window (PEER per window) ----------------------------------------
-win <- dipWindow(radian)
 windowBeta <- map_dfr(seq_len(N_WINDOWS), \(w) {
   rows <- which(win == w)
   if (length(rows) < MIN_WINDOW_N) return(NULL)
@@ -85,7 +103,8 @@ fwrite(windowBeta, paste0(outDir, 'windowBeta.csv'))
 toHours <- 24 / (2 * pi)
 for (ch in c('24hLead', 'GxTLead')) {
   cz  <- filter(cosinor, choice == ch) %>% arrange(pGxT) %>%
-    mutate(panel = factor(sprintf('%s  %s\nGxT p = %.1e', gene, variant, pGxT)) %>% fct_inorder())
+    mutate(panel = factor(sprintf('%s  %s\nGxT p = %.1e (best of %d variants)', gene, variant, pGxT, nVar)) %>%
+             fct_inorder())
   key <- select(cz, gene, panel)
   curve <- cz %>% crossing(t = seq(0, 2 * pi, length.out = 100)) %>%
     mutate(beta = b + lambda * (g1 * cos(t) + g2 * sin(t)))
