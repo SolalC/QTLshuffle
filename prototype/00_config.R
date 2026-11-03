@@ -67,6 +67,11 @@ SEED          <- 20261102
 # PEER backend: 'peer' (the R package) is the analysis; 'pca_test_only' exists
 # solely for the toy test where PEER is not installed.
 PEER_BACKEND  <- .envPath('QTLSHUFFLE_PEER_BACKEND', 'peer')
+# PEER is unmaintained and only builds under R 3.4 (bioconda r-peer 1.3), so it
+# lives in its own conda environment, installed by the rhyh2 repo's
+# Code/peer/install_peer.sh. Each fit runs there as a separate process.
+PEER_RSCRIPT  <- .envPath('QTLSHUFFLE_PEER_RSCRIPT', '/home/uqschauq/software/peer_env/bin/Rscript')
 
 .a <- commandArgs(FALSE); .f <- sub('^--file=', '', .a[grep('^--file=', .a)])
-source(file.path(if (length(.f)) dirname(normalizePath(.f)) else '.', '00_functions.R'))
+CODE_DIR <- if (length(.f)) dirname(normalizePath(.f)) else normalizePath('.')
+source(file.path(CODE_DIR, '00_functions.R'))

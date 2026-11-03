@@ -18,5 +18,5 @@
 # NPERM_GENO permutations each. Time one task first (sbatch --array 1
 # 02_windowScan.sh; the log prints minutes per permutation).
 cd "${SLURM_SUBMIT_DIR}"
-module load r/4.4.0-combo-EPYC3-only
+module load r/4.4.2-heavy
 Rscript 02_windowScan.R $SLURM_ARRAY_TASK_ID $SLURM_CPUS_PER_TASK

@@ -15,5 +15,5 @@
 # Submit from this folder: sbatch 01_prepareTissues.sh
 # (array size = N_TISSUES in 00_config.R)
 cd "${SLURM_SUBMIT_DIR}"
-module load r/4.4.0-combo-EPYC3-only
+module load r/4.4.2-heavy
 Rscript 01_prepareTissues.R $SLURM_ARRAY_TASK_ID

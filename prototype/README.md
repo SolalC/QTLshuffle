@@ -65,4 +65,4 @@ Result:
 
 ## Requirements
 
-R ≥ 4.4 with tidyverse, data.table, R.utils, peer, and qvalue (Bioconductor). No plink reader package is needed: `readPlinkVariants` reads the cis variants from the .bed directly.
+R 4.4 (`module load r/4.4.2-heavy`) with tidyverse, data.table, R.utils and qvalue (Bioconductor). PEER does not build under R 4.4. It runs in its own R 3.4 conda environment (`PEER_RSCRIPT`, installed by the rhyh2 repo's `Code/peer/install_peer.sh`) through `peer_fit.R`, one process per fit, with R 4.4's environment variables removed. Smoke test: `module purge; /home/uqschauq/software/peer_env/bin/Rscript -e 'library(peer); cat("ok\n")'`. No plink reader package is needed: `readPlinkVariants` reads the cis variants from the .bed directly.

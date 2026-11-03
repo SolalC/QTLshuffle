@@ -99,18 +99,28 @@ referenceSample <- function(nDonor, nW, perm, window) {
 # --- Covariates ----------------------------------------------------------------
 
 # N_PEER factors from the expression of one donor set (donors x all genes).
+# 'peer': PEER runs in its own R 3.4 (PEER_RSCRIPT) through peer_fit.R; data are
+# exchanged as version-2 .rds files in a temporary folder.
 runPEER <- function(E, k = N_PEER) {
   if (PEER_BACKEND == 'peer') {
-    model <- peer::PEER()
-    peer::PEER_setPhenoMean(model, as.matrix(E))
-    peer::PEER_setNk(model, k)
-    peer::PEER_setNmax_iterations(model, PEER_ITER)
-    peer::PEER_update(model)
-    X <- peer::PEER_getX(model)
+    tmp <- tempfile('peer_'); dir.create(tmp); on.exit(unlink(tmp, recursive = TRUE))
+    inFile <- file.path(tmp, 'Y.rds'); outFile <- file.path(tmp, 'X.rds')
+    saveRDS(unname(as.matrix(E)), inFile, version = 2)
+    # Clean environment for R 3.4: no R 4.4 R_HOME, library paths or module libraries
+    # (the rhyh2 pipeline runs `module purge` before PEER for the same reason).
+    clean <- c('R_HOME', 'R_LIBS', 'R_LIBS_USER', 'R_LIBS_SITE', 'R_ENVIRON', 'R_ENVIRON_USER',
+               'R_PROFILE', 'R_PROFILE_USER', 'R_SHARE_DIR', 'R_INCLUDE_DIR', 'R_DOC_DIR',
+               'LD_LIBRARY_PATH')
+    status <- system2('env', c(rbind('-u', clean), PEER_RSCRIPT,
+                               shQuote(file.path(CODE_DIR, 'peer_fit.R')), shQuote(inFile),
+                               shQuote(outFile), k, PEER_ITER, SEED))
+    if (status != 0 || !file.exists(outFile)) stop('PEER failed (', PEER_RSCRIPT, ')')
+    X <- readRDS(outFile)
   } else if (PEER_BACKEND == 'pca_test_only') {
     X <- prcomp(E, center = TRUE)$x[, seq_len(k), drop = FALSE]
   } else stop('Unknown PEER_BACKEND: ', PEER_BACKEND)
-  colnames(X) <- paste0('PEER', seq_len(ncol(X)))
+  X <- as.matrix(X)
+  dimnames(X) <- list(rownames(E), paste0('PEER', seq_len(ncol(X))))
   X
 }
 

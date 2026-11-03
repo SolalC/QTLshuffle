@@ -13,5 +13,5 @@
 
 # Submit from this folder: sbatch 01_prepareData.sh
 cd "${SLURM_SUBMIT_DIR}"
-module load r/4.4.0-combo-EPYC3-only
+module load r/4.4.2-heavy
 Rscript 01_prepareData.R
