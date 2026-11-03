@@ -2,6 +2,8 @@
 
 Do cis-eQTL found in a narrow window of circadian time disappear when the rest of the day is added?
 
+An R-only prototype on the 50 most rhythmic genes in skeletal muscle is in [`prototype/`](prototype/README.md). The design is being settled there first.
+
 ## Hypothesis
 
 A genotype × time-of-day (G×time) effect can look like an ordinary eQTL when all samples come from a narrow window of internal time. Under a cosinor model, the genotype effect measured in a window centred on t* is approximately
