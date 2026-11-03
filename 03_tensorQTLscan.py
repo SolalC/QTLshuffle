@@ -33,7 +33,7 @@ import pandas as pd
 import tensorqtl
 import torch
 from scipy import stats
-from tensorqtl import cis, genotypeio
+from tensorqtl import cis, genotypeio, post
 
 cfg = json.load(open(sys.argv[1]))
 task = int(sys.argv[2])
@@ -72,21 +72,6 @@ genotype_df, variant_df = genotype_df[keep], variant_df[keep]
 phenotype_df = phenotype_df[phenotype_pos_df['chr'].isin(autosomes)]
 phenotype_pos_df = phenotype_pos_df.loc[phenotype_df.index]
 print(f'{genotype_df.shape[0]} variants, {phenotype_df.shape[0]} genes, {len(donors)} donors', flush=True)
-
-# --- Storey q-value ------------------------------------------------------------
-
-def qvalue(p, lam):
-    """Storey q-values with a fixed lambda, as R qvalue::qvalue(p, lambda = lam),
-    which tensorQTL calls through rpy2 (avoids that dependency)."""
-    p = np.asarray(p, dtype=float)
-    m = len(p)
-    pi0 = min(1.0, np.mean(p >= lam) / (1 - lam))
-    order = np.argsort(p)
-    q = pi0 * m * p[order] / np.arange(1, m + 1)
-    q = np.minimum.accumulate(q[::-1])[::-1]
-    out = np.empty(m)
-    out[order] = np.minimum(q, 1)
-    return out
 
 # --- Re-test of lead variants in another donor set -----------------------------
 
@@ -129,7 +114,7 @@ def scanWindow(perm, window):
                       covariates_df=covW, nperm=int(cfg['TQ_NPERM']), window=int(cfg['CIS_WINDOW']),
                       maf_threshold=cfg['MIN_MAC'] / (2 * len(rowsW)),
                       seed=int(cfg['SEED']) + 100 * perm + window, verbose=False)
-    res['qval'] = qvalue(res['pval_beta'], cfg['QVALUE_LAMBDA'])
+    post.calculate_qvalues(res, fdr=cfg['GENE_FDR'], qvalue_lambda=cfg['QVALUE_LAMBDA'])
     hits = res[res['qval'] < cfg['GENE_FDR']].copy()
     hits['rhythmic'] = genes.reindex(hits.index)['rhythmic'].fillna(False).astype(bool).values
     hits = hits.join(leadVariantTest(hits, rowsR, covR)) if len(hits) else \

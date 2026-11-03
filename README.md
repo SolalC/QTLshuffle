@@ -20,7 +20,7 @@ where b is the 24 h mean effect and γ1, γ2 the genotype effect on the rhythm. 
 | Genes | all expressed genes |
 | Variants | ±1 Mb of the TSS; MAF ≥ 1 % in the tissue; minor allele count ≥ 10 in each donor subset tested |
 | Model | `y ~ g + sex + platform + pcr + PC1-5 + 10 PEER factors`; PEER recomputed in every donor subset |
-| eGene | tensorQTL `map_cis` as in GTEx: 10 000 genotype permutations per gene, beta-approximated p, Storey q-value (λ = 0.85; computed in Python with the `qvalue` formula, so rpy2 is not needed), q < 0.05 |
+| eGene | tensorQTL `map_cis` as in GTEx: 10 000 genotype permutations per gene, beta-approximated p, Storey q-value (λ = 0.85, tensorQTL `post.calculate_qvalues`, which calls R `qvalue`), q < 0.05 |
 | 24 h reference | per window, n_W donors drawn at random from all donors over 24 h (about 1/8 are window donors); PEER recomputed there; the window lead variant re-tested |
 | Vanishing hit | p_24h > 0.05 and z = (β_win − β_24h) / √(SE_win² + SE_24h²) with p < 0.05 (Cochran's Q, K = 2; conservative because of the shared donors) |
 | Null | DIP permuted across donors within tissue, 1000 times; every step re-run |
@@ -71,4 +71,4 @@ The test uses PCA in place of PEER (`PEER_BACKEND = 'pca_test_only'`). Run it wi
 
 ## Requirements
 
-R ≥ 4.4 with tidyverse, data.table, R.utils, jsonlite, peer. Python ≥ 3.10 with tensorQTL (PyTorch with CUDA), pandas, numpy, scipy.
+R ≥ 4.4 with tidyverse, data.table, R.utils, jsonlite, peer. Python ≥ 3.10 with tensorQTL (PyTorch with CUDA), pandas, numpy, scipy, and rpy2 linked to an R with the Bioconductor package `qvalue`.
