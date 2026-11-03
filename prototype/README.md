@@ -16,6 +16,15 @@ The full design on one tissue and a small gene set. Use it to settle the experim
 | Vanishing hit | p_24h > 0.05 and z = (β_win − β_24h) / √(SE_win² + SE_24h²) with p < 0.05 |
 | Null | DIP permuted across donors 1000 times; everything re-run |
 
+## Figure: effect against inferred phase (`04_phasePlot.R`)
+
+One panel per gene. One point per 3 h DIP window: the variant effect re-estimated on that window's donors, with PEER recomputed. The thick bar is ±1 SE (the SD of the estimate) and the thin bar is the 95% CI. The dashed line is the 24 h effect. The blue curve is the cosinor G × time fit on all donors, attenuated for the window width. The script makes two versions, one for each way of choosing the variant:
+
+- `betaByPhase_24hLead.pdf`: the lead variant of a standard 24 h scan;
+- `betaByPhase_GxTLead.pdf`: the variant with the strongest G × time interaction.
+
+A pure phase or amplitude QTL has no 24 h marginal effect, so the 24 h scan usually does not pick its variant. The variant is chosen using all donors, the window donors included, so the figure is descriptive and not a test.
+
 ## Differences from tensorQTL
 
 - **Permutations.** tensorQTL permutes the covariate-residualised expression and correlates it with the residualised genotypes. Permuted residuals are no longer orthogonal to the covariates, so their correlations have variance ≈ 1/(n − 1) instead of 1/(n − k − 1). With about 19 covariates and about 100 window donors, that null is too narrow. Here, the permuted residuals are residualised again (Freedman–Lane), which restores trueDof ≈ n − k − 1. `tests/null_calibration.R` simulates 2000 genes with no genetic effect (n = 80, 19 covariates, 1000 permutations each):
@@ -35,6 +44,7 @@ cd prototype && mkdir -p logs
 sbatch 01_prepareData.sh                               # donors, 50 genes, cis genotypes read from plink
 sbatch --dependency=afterok:<01> 02_windowScan.sh      # array 1-51: blocks of 20 DIP permutations
 Rscript 03_summarise.R                                 # empirical p for nHits and nVanish
+sbatch --dependency=afterok:<01> 04_phasePlot.sh       # beta of one variant per gene in each window
 ```
 
 Outputs go to `Results_prototype/`:
@@ -48,10 +58,10 @@ Outputs go to `Results_prototype/`:
 `bash tests/run_toy_test.sh` uses the toy data from `../tests/make_toy_data.R`, with 39 DIP permutations, 1000 permutations per gene, and PCA in place of PEER. It took 2 min on 4 cores.
 
 Result:
-- 41 observed hits against a null mean of 0.36 (p = 0.025).
-- 36 vanishing hits against a null mean of 0.33.
-- 21/25 phase-QTL hits and 15/16 amplitude-QTL hits vanish.
-- No hits among the rhythmic genes without a genetic effect.
+- 116 observed hits against a null mean of 0.36 (p = 0.025).
+- 100 vanishing hits against a null mean of 0.36.
+- 53/63 phase-QTL hits and 43/47 amplitude-QTL hits vanish.
+- 6 hits among the rhythmic genes without a genetic effect. Most likely the latent factors (PCA here) absorb the very strong toy cis effects of neighbouring genes, and adjusting for them induces an association.
 
 ## Requirements
 

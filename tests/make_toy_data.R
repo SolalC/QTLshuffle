@@ -63,11 +63,12 @@ simulateExpr <- function(donorIdx) {
     causal <- onChr[which.min(abs(bim$pos[onChr] - genes$start[k]))]
     g <- X[causal, donorIdx]; g[is.na(g)] <- 1
     peak <- runif(1, -pi, pi)
+    a <- genes$k[k]   # architecture index within the chromosome (k is the row)
     y <- case_when(
-      k %in% 1:10  ~ 2.0 * cos(t - peak - (pi / 4) * g),
-      k %in% 11:20 ~ 1.2 * g * cos(t - peak),
-      k %in% 21:30 ~ 1.0 * g,
-      k %in% 31:40 ~ 0.8 * cos(t - peak),
+      a %in% 1:10  ~ 2.0 * cos(t - peak - (pi / 4) * g),
+      a %in% 11:20 ~ 1.2 * g * cos(t - peak),
+      a %in% 21:30 ~ 1.0 * g,
+      a %in% 31:40 ~ 0.8 * cos(t - peak),
       TRUE ~ 0)
     y + rnorm(length(t))
   })

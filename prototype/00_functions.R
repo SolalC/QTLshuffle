@@ -6,7 +6,7 @@
 #   Windows        dipWindow, permutedRadian, referenceSample
 #   Covariates     runPEER, subsetCovariates, covariateBasis, residualise
 #   Association    meanImpute, minorAlleleCount, pFromR2, betaShape1FromDof,
-#                  betaApprox, geneScan, leadVariantTest
+#                  betaApprox, geneScan, gxtLead, leadVariantTest
 #   Window scan    geneQvalue, scanWindow
 # =============================================================================
 
@@ -180,8 +180,9 @@ betaApprox <- function(r2Perm, r2Nominal, dofInit) {
 # and p-values are too small when k covariates are many relative to n (here
 # ~19 covariates for ~100 window donors). The permuted residuals are therefore
 # residualised again (Freedman-Lane), which restores the null variance.
-# y: expression (n), G: dosages (n x cis variants), Q: covariate basis.
-geneScan <- function(y, G, Q, seed) {
+# y: expression (n), G: dosages (n x cis variants), Q: covariate basis;
+# nperm = 0 returns the nominal lead variant only.
+geneScan <- function(y, G, Q, seed, nperm = NPERM_GENO) {
   n  <- length(y); df <- n - ncol(Q) - 1
   G  <- meanImpute(G)
   G  <- G[, minorAlleleCount(G) >= MIN_MAC, drop = FALSE]
@@ -201,8 +202,11 @@ geneScan <- function(y, G, Q, seed) {
   beta <- sum(Gr[, j] * yr) / sxx
   se   <- sqrt(max(sum(yr^2) - beta^2 * sxx, 0) / df / sxx)
 
+  if (nperm == 0)   # nominal lead variant only
+    return(tibble(variant = colnames(G)[j], nVar = ncol(G), beta = beta, se = se,
+                  pNominal = rToP(r[j])))
   set.seed(seed)
-  rMax <- unlist(map(split(seq_len(NPERM_GENO), ceiling(seq_len(NPERM_GENO) / 1000)), \(chunk) {
+  rMax <- unlist(map(split(seq_len(nperm), ceiling(seq_len(nperm) / 1000)), \(chunk) {
     P <- vapply(chunk, \(i) yn[sample.int(n)], numeric(n))
     # Freedman-Lane: the permuted residuals are residualised on the covariates
     # again before computing correlations (see note above).
@@ -212,9 +216,27 @@ geneScan <- function(y, G, Q, seed) {
   ba <- betaApprox(rMax^2, r[j]^2, df)
   tibble(variant = colnames(G)[j], nVar = ncol(G), beta = beta, se = se,
          pNominal = rToP(r[j]),
-         pPerm = (1 + sum(rMax >= abs(r[j]))) / (1 + NPERM_GENO),
+         pPerm = (1 + sum(rMax >= abs(r[j]))) / (1 + nperm),
          pBeta = ba[['pBeta']], betaShape1 = ba[['shape1']], betaShape2 = ba[['shape2']],
          trueDof = ba[['trueDof']])
+}
+
+# Variant with the strongest genotype x time interaction (cosinor) among a gene's
+# cis variants: F test of g:cos + g:sin given g, cos, sin and covariates.
+# Q0: covariate basis that already includes cos(DIP) and sin(DIP).
+gxtLead <- function(y, G, Q0, cosr, sinr) {
+  G  <- meanImpute(G)
+  G  <- G[, minorAlleleCount(G) >= MIN_MAC, drop = FALSE]
+  yr <- as.vector(residualise(y, Q0))
+  df <- length(y) - ncol(Q0) - 3
+  f <- vapply(seq_len(ncol(G)), \(j) {
+    X <- residualise(cbind(G[, j], G[, j] * cosr, G[, j] * sinr), Q0)
+    rss0 <- sum(lm.fit(X[, 1, drop = FALSE], yr)$residuals^2)
+    rss1 <- sum(lm.fit(X, yr)$residuals^2)
+    ((rss0 - rss1) / 2) / (rss1 / df)
+  }, numeric(1))
+  j <- which.max(f)
+  tibble(variant = colnames(G)[j], nVar = ncol(G), pGxTLead = pf(f[j], 2, df, lower.tail = FALSE))
 }
 
 # Lead variant re-tested in another donor set (same model).
