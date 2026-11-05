@@ -12,9 +12,8 @@
 #SBATCH -e ../logs/%x.err
 
 # Submit from this folder: sbatch 02a_vcfToPlink.sh   (no dependency on 01)
-# Reads the whole 634 GB VCF once. Set PLINK2 to the plink2 executable
-# (check `module avail plink`; a downloaded binary works too).
-PLINK2=plink2
+# Reads the whole 634 GB VCF once with the plink2 binary below (no Bunya module).
+PLINK2=/home/uqschauq/software/plink2   # as in the rhyh2 pipeline (Code/config.R)
 cd "${SLURM_SUBMIT_DIR}"
 module load r/4.4.2-heavy
 Rscript 02a_vcfToPlink.R "$PLINK2" $SLURM_CPUS_PER_TASK 56000

@@ -3,7 +3,8 @@
 #
 # One pass over GENOTYPE_VCF with plink2, keeping the tissue's donors (those
 # with expression, covariates and a DIP), FILTER = PASS, biallelic variants on
-# chr1-22, MAF >= MAF_THRESHOLD among those donors; half-calls set to missing.
+# chr1-22, MAF >= MAF_THRESHOLD among those donors; half-calls set to missing;
+# variants with duplicated IDs dropped (later steps index variants by ID).
 # Writes a plink 1 .bed/.bim/.fam, in VCF order (sorted by chromosome and
 # position), that 02b reads one chromosome at a time.
 #
@@ -28,7 +29,7 @@ writeLines(c('#IID', keep), keepFile)
 
 status <- system2(plink2, c('--vcf', GENOTYPE_VCF, '--vcf-half-call', 'missing',
                             '--keep', keepFile, '--var-filter', '--max-alleles', '2',
-                            '--chr', '1-22', '--maf', MAF_THRESHOLD,
+                            '--chr', '1-22', '--maf', MAF_THRESHOLD, '--rm-dup', 'exclude-all',
                             '--make-bed', '--out', GENOTYPE_PLINK,
                             '--threads', threads, '--memory', memory))
 if (status != 0) stop('plink2 failed; see ', GENOTYPE_PLINK, '.log')
