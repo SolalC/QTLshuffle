@@ -29,12 +29,12 @@ j2=$(sbatch --parsable 02_prepareGenotypes.sh)       # array 1-22: genotypes per
 sbatch --array 1 --dependency=afterok:$j1:$j2 03_windowScan.sh   # time one task first (0 h, chr1)
 j3=$(sbatch --parsable --dependency=afterok:$j1:$j2 03_windowScan.sh)  # array 1-528: 24 centres x 22 chromosomes
 j4=$(sbatch --parsable --dependency=afterok:$j3 04_windowCall.sh)      # eGenes, significant pairs, clumping
-sbatch --array 1 --dependency=afterok:$j4 05_referenceRetest.sh        # time one task first (50 PEER fits)
-j5=$(sbatch --parsable --dependency=afterok:$j4 05_referenceRetest.sh) # array 1-480: 24 centres x 20 blocks of 50
+sbatch --array 1 --dependency=afterok:$j4 05_referenceRetest.sh        # time one task first (24 PEER fits)
+j5=$(sbatch --parsable --dependency=afterok:$j4 05_referenceRetest.sh) # array 1-1000: one task per reference sample
 sbatch --dependency=afterok:$j5 --wrap "module load r/4.4.2-heavy; Rscript 06_collect.R" -A a_imb_cpdg -p general -t 2:00:00 --mem 60G
 ```
 
-Cost: one gene scan (90 donors, 7000 variants, 10 000 permutations) took 7 s on one core here, so about 40 core-hours per window and 1000 core-hours for 24 windows if muscle has 20 000 genes. PEER time is not known: 24 window fits plus 24 000 reference fits (1000 × 24). Time one 05 task before submitting the array.
+Cost: one gene scan (90 donors, 7000 variants, 10 000 permutations) took 7 s on one core here, so about 40 core-hours per window and 1000 core-hours for 24 windows if muscle has 20 000 genes. PEER time is not known: 24 window fits plus 24 000 reference fits (1000 × 24). Time one 05 task (24 fits, 8 at a time) before submitting the array.
 
 ## Outputs (`Results_rolling/`)
 
@@ -50,8 +50,8 @@ Everything that is expensive is written to disk and re-used.
 | `w3h/calls/genes.csv.gz` | all genes with q-value and nominal threshold, per centre |
 | `w3h/calls/significantPairs.csv.gz` | significant pairs with their index variant |
 | `w3h/calls/independent.csv.gz` | index variants (one row per independent signal and centre) |
-| `w3h/referenceCovariates/c<centre>_block<b>.rds` | per reference sample: donors and covariates (fixed + PEER). 05 re-uses them on a rerun, for example after changing a threshold in 04 |
-| `w3h/reference/c<centre>_block<b>.csv.gz` | re-test of every signal in every reference sample (β, SE, p, nShared) |
+| `w3h/referenceCovariates/ref<r>.rds` | per reference sample and centre: donors and covariates (fixed + PEER). 05 re-uses them on a rerun, for example after changing a threshold in 04 |
+| `w3h/reference/ref<r>.csv.gz` | re-test of every signal of every centre in reference sample r (β, SE, p, nShared) |
 | `w3h/results/rollingWindow.csv.gz` | **main table**: one row per signal × centre, with the window β, SE and p; nRef, refMean, refSD; zRef = (β − refMean)/refSD; two-sided pEmp; one-sided pEmpLarger (reference β at least as large in the window's direction); then `beta_ref_1` to `beta_ref_1000` |
 | `w3h/results/referenceLong.csv.gz` | β, SE and p of every reference association |
 

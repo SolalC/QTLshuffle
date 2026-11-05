@@ -60,8 +60,7 @@ peerK <- function(n) case_when(n < 150 ~ 15, n < 250 ~ 30, n < 350 ~ 45, TRUE ~ 
 PEER_ITER      <- 1000      # PEER maximum iterations
 
 # --- 24 h reference samples ------------------------------------------------------------
-N_REF          <- .envNum('QTLSHUFFLE_N_REF', 1000)     # random 24 h samples per window centre
-REF_BLOCK      <- .envNum('QTLSHUFFLE_REF_BLOCK', 50)   # reference samples per SLURM task
+N_REF          <- .envNum('QTLSHUFFLE_N_REF', 1000)     # random 24 h samples per window centre (one SLURM task each)
 SEED           <- 20261105
 
 # PEER backend: 'peer' (the R package) is the analysis; 'pca_test_only' exists
