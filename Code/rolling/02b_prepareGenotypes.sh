@@ -9,8 +9,8 @@
 #SBATCH --constraint=epyc3
 #SBATCH --account=a_imb_cpdg
 #SBATCH --array 1-22
-#SBATCH -o logs/%x_%a.out
-#SBATCH -e logs/%x_%a.err
+#SBATCH -o ../logs/%x_%a.out
+#SBATCH -e ../logs/%x_%a.err
 
 # Submit from this folder after 02a (not 01): sbatch --dependency=afterok:<02a> 02b_prepareGenotypes.sh
 # One task per chromosome.

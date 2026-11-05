@@ -9,8 +9,8 @@
 #SBATCH --constraint=epyc3
 #SBATCH --account=a_imb_cpdg
 #SBATCH --array 1-528
-#SBATCH -o logs/%x_%a.out
-#SBATCH -e logs/%x_%a.err
+#SBATCH -o ../logs/%x_%a.out
+#SBATCH -e ../logs/%x_%a.err
 
 # Submit after 01 and 02b: sbatch --dependency=afterok:<01>:<02b> 03_windowScan.sh
 # Array 1-528 = 24 centres x 22 chromosomes; task k: centre (k-1) %/% 22, chromosome (k-1) %% 22 + 1.

@@ -6,8 +6,8 @@
 # p = (1 + #null >= observed) / (1 + #null).
 #
 # Run:     Rscript 03_summarise.R            (after every 02 task)
-# Outputs: Results_prototype/summary/{overall,permutationTotals}.csv,
-#          Results_prototype/summary/nullDistribution.jpeg
+# Outputs: Results/prototype/summary/{overall,permutationTotals}.csv,
+#          Results/prototype/summary/nullDistribution.jpeg
 # =============================================================================
 
 .a <- commandArgs(FALSE); .f <- sub('^--file=', '', .a[grep('^--file=', .a)])

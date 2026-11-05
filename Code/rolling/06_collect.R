@@ -14,7 +14,7 @@
 # association are in referenceLong.csv.gz.
 #
 # Run:     Rscript 06_collect.R        (after every 05 task)
-# Outputs: Results_rolling/w<W>h/results/rollingWindow.csv.gz,
+# Outputs: Results/rolling/w<W>h/results/rollingWindow.csv.gz,
 #          referenceLong.csv.gz, missingReference.csv (if any)
 # =============================================================================
 

@@ -15,7 +15,7 @@
 #
 # Run:     sbatch 04_windowCall.sh      (after every 03 task)
 # Usage:   Rscript 04_windowCall.R <n cores>
-# Outputs: Results_rolling/w<W>h/calls/
+# Outputs: Results/rolling/w<W>h/calls/
 #            genes.csv.gz            every gene tested, per centre, with q-value
 #            significantPairs.csv.gz significant pairs with their index variant
 #            independent.csv.gz      index variants (one row per signal)

@@ -14,7 +14,7 @@
 # Usage:   Rscript 02_peerCovariates.R <task index> <n cores>
 #          task -> tissue = (task-1) %/% nBlock + 1, block = (task-1) %% nBlock + 1,
 #          nBlock = ceiling((N_PERM + 1) / PERM_BLOCK)
-# Outputs: Results/peerCovariates/<tissue>_block<b>.csv.gz, long format:
+# Outputs: Results/main/peerCovariates/<tissue>_block<b>.csv.gz, long format:
 #          perm, window, set (window / reference), donor, one column per covariate
 # =============================================================================
 

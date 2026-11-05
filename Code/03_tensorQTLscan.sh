@@ -15,7 +15,7 @@
 # Python environment with tensorQTL (and PyTorch built for CUDA):
 TQ_ENV=/scratch/project_mnt/S0007/solal/envs/tensorqtl
 # Configuration written by 01_prepareTissues.R (paths and constants from 00_config.R):
-CONFIG=/scratch/user/uqschauq/QTLshuffle/Results/config.json
+CONFIG=/scratch/user/uqschauq/QTLshuffle/Results/main/config.json
 
 # Submit from this folder after the matching 02 tasks: sbatch 03_tensorQTLscan.sh
 # Same task numbering as 02 (N_TISSUES x blocks = 510).

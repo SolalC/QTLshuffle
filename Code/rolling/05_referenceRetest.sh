@@ -9,8 +9,8 @@
 #SBATCH --constraint=epyc3
 #SBATCH --account=a_imb_cpdg
 #SBATCH --array 1-1000
-#SBATCH -o logs/%x_%a.out
-#SBATCH -e logs/%x_%a.err
+#SBATCH -o ../logs/%x_%a.out
+#SBATCH -e ../logs/%x_%a.err
 
 # Submit after 04: sbatch --dependency=afterok:<04> 05_referenceRetest.sh
 # Array 1-1000: task r = reference sample r, for all 24 centres (24 PEER fits, 8 at a time).

@@ -9,8 +9,8 @@
 #SBATCH --array 1-51
 #SBATCH --constraint=epyc3
 #SBATCH --account=a_imb_cpdg
-#SBATCH -o logs/%x_%a.out
-#SBATCH -e logs/%x_%a.err
+#SBATCH -o ../logs/%x_%a.out
+#SBATCH -e ../logs/%x_%a.err
 
 # Submit from this folder after 01: sbatch 02_windowScan.sh
 # Array size = ceiling((N_PERM + 1) / PERM_BLOCK) = 51 blocks of 20 DIP permutations.

@@ -12,7 +12,7 @@
 # Run:     sbatch 03_windowScan.sh       (array 1..24 x length(CHROMOSOMES))
 # Usage:   Rscript 03_windowScan.R <task> <n cores>
 #          task = (centre index - 1) * length(CHROMOSOMES) + chromosome index
-# Outputs: Results_rolling/w<W>h/scan/c<centre>_chr<c>_{genes,pairs}.csv.gz
+# Outputs: Results/rolling/w<W>h/scan/c<centre>_chr<c>_{genes,pairs}.csv.gz
 # =============================================================================
 
 .a <- commandArgs(FALSE); .f <- sub('^--file=', '', .a[grep('^--file=', .a)])

@@ -9,8 +9,8 @@
 #SBATCH --constraint=epyc3
 #SBATCH --account=a_imb_cpdg
 
-#SBATCH -o logs/%x.out
-#SBATCH -e logs/%x.err
+#SBATCH -o ../logs/%x.out
+#SBATCH -e ../logs/%x.err
 
 # Submit from this folder: sbatch 01_prepareTissue.sh
 # 24 PEER fits (one per window centre) run in parallel, one per core.

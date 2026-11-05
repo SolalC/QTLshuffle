@@ -8,8 +8,8 @@
 #SBATCH --partition=general
 #SBATCH --constraint=epyc3
 #SBATCH --account=a_imb_cpdg
-#SBATCH -o logs/%x.out
-#SBATCH -e logs/%x.err
+#SBATCH -o ../logs/%x.out
+#SBATCH -e ../logs/%x.err
 
 # Submit from this folder: sbatch 02a_vcfToPlink.sh   (no dependency on 01)
 # Reads the whole 634 GB VCF once. Set PLINK2 to the plink2 executable

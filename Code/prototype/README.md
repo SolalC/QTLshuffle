@@ -40,14 +40,14 @@ A pure phase or amplitude QTL has no 24 h marginal effect, so the 24 h scan usua
 ## Run order (Bunya)
 
 ```bash
-cd prototype && mkdir -p logs
+cd Code && mkdir -p logs && cd prototype   # logs go to Code/logs
 sbatch 01_prepareData.sh                               # donors, 50 genes, cis genotypes read from plink
 sbatch --dependency=afterok:<01> 02_windowScan.sh      # array 1-51: blocks of 20 DIP permutations
 Rscript 03_summarise.R                                 # empirical p for nHits and nVanish
 sbatch --dependency=afterok:<01> 04_phasePlot.sh       # beta of one variant per gene in each window
 ```
 
-Outputs go to `Results_prototype/`:
+Outputs go to `Results/prototype/`:
 - `genes.csv`: the selected genes;
 - `windowCounts/block<b>.csv`;
 - `windowHits/observed.csv`;

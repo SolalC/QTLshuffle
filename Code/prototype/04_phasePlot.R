@@ -24,7 +24,7 @@
 # This figure is descriptive.
 #
 # Run:     sbatch 04_phasePlot.sh            (after 01; 1 + N_WINDOWS PEER fits)
-# Outputs: Results_prototype/phasePlot/{windowBeta,cosinorFit}.csv,
+# Outputs: Results/prototype/phasePlot/{windowBeta,cosinorFit}.csv,
 #          betaByPhase_24hLead.pdf, betaByPhase_GxTLead.pdf
 # =============================================================================
 

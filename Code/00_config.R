@@ -1,7 +1,7 @@
 # =============================================================================
 # Paths and constants shared by every script. Each R script sources this file
 # first; it in turn sources 00_helperFunctions.R. 01_prepareTissues.R writes
-# the values the Python step needs to Results/config.json, so this file stays
+# the values the Python step needs to Results/main/config.json, so this file stays
 # the single place where paths and constants are set.
 #
 # Every input path can be overridden with an environment variable of the same
@@ -23,7 +23,7 @@ suppressPackageStartupMessages({
 .envNum  <- function(var, default) as.numeric(Sys.getenv(var, default))
 
 ROOT        <- .envDir('QTLSHUFFLE_ROOT', '/scratch/user/uqschauq/QTLshuffle/')
-RESULTS_DIR <- .envDir('QTLSHUFFLE_RESULTS', paste0(ROOT, 'Results/'))
+RESULTS_DIR <- .envDir('QTLSHUFFLE_RESULTS', paste0(ROOT, 'Results/main/'))
 
 # --- Inputs (same files as the cd-eQTL analysis) ---------------------------------
 CIRCADIAN_ROOT  <- '/scratch/project_mnt/S0007/solal/circadian/'

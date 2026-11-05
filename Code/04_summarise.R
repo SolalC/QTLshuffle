@@ -7,8 +7,8 @@
 # Only permutations complete for every tissue enter the totals.
 #
 # Run:     Rscript 04_summarise.R            (after every 03 task)
-# Outputs: Results/summary/{overall,perTissue,permutationTotals}.csv,
-#          Results/summary/nullDistribution.jpeg
+# Outputs: Results/main/summary/{overall,perTissue,permutationTotals}.csv,
+#          Results/main/summary/nullDistribution.jpeg
 # =============================================================================
 
 .a <- commandArgs(FALSE); .f <- sub('^--file=', '', .a[grep('^--file=', .a)])

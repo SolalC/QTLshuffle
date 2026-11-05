@@ -13,8 +13,8 @@
 #
 # Run:     sbatch 02_windowScan.sh          (array 1..ceiling((N_PERM+1)/PERM_BLOCK))
 # Usage:   Rscript 02_windowScan.R <block> <n cores>
-# Outputs: Results_prototype/windowCounts/block<b>.csv  (one row per perm x window)
-#          Results_prototype/windowHits/observed.csv    (block 1 only: perm 0)
+# Outputs: Results/prototype/windowCounts/block<b>.csv  (one row per perm x window)
+#          Results/prototype/windowHits/observed.csv    (block 1 only: perm 0)
 # =============================================================================
 
 .a <- commandArgs(FALSE); .f <- sub('^--file=', '', .a[grep('^--file=', .a)])

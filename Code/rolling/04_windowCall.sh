@@ -9,8 +9,8 @@
 #SBATCH --constraint=epyc3
 #SBATCH --account=a_imb_cpdg
 
-#SBATCH -o logs/%x.out
-#SBATCH -e logs/%x.err
+#SBATCH -o ../logs/%x.out
+#SBATCH -e ../logs/%x.err
 
 # Submit after every 03 task: sbatch --dependency=afterok:<03> 04_windowCall.sh
 cd "${SLURM_SUBMIT_DIR}"

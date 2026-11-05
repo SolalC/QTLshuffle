@@ -24,7 +24,7 @@ Are cis-eQTL found in a narrow window of inferred circadian phase (DIP) larger t
 ## Run order (Bunya)
 
 ```bash
-cd rolling && mkdir -p logs
+cd /scratch/user/uqschauq/QTLshuffle/Code && mkdir -p logs && cd rolling   # logs go to Code/logs
 j1=$(sbatch --parsable 01_prepareTissue.sh)          # tissue data; PEER for the 24 windows
 j2a=$(sbatch --parsable 02a_vcfToPlink.sh)          # full WGS VCF to plink, one pass (set PLINK2 in the script)
 j2=$(sbatch --parsable --dependency=afterok:$j2a 02b_prepareGenotypes.sh)  # array 1-22: genotypes per chromosome
@@ -46,7 +46,7 @@ All individual-level genotypes written by the pipeline go to `GENO_DIR`, not to 
 - `<tissue>/genotypes_chr<c>.rds`: per-chromosome genotypes, raw codes (02b);
 - `<tissue>/w<W>h_indexGenotypes.rds`: genotypes of the index variants (04, read by 05).
 
-## Outputs (`Results_rolling/`)
+## Outputs (`Results/rolling/`)
 
 Everything that is expensive is written to disk and re-used.
 

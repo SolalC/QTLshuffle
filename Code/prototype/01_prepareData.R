@@ -11,7 +11,7 @@
 #
 # Run:     sbatch 01_prepareData.sh
 # Usage:   Rscript 01_prepareData.R
-# Outputs: Results_prototype/prototypeData.rds, Results_prototype/genes.csv
+# Outputs: Results/prototype/prototypeData.rds, Results/prototype/genes.csv
 # =============================================================================
 
 .a <- commandArgs(FALSE); .f <- sub('^--file=', '', .a[grep('^--file=', .a)])

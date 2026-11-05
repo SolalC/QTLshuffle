@@ -16,9 +16,9 @@
 #
 # Run:     sbatch 05_referenceRetest.sh   (array 1..N_REF, after 04)
 # Usage:   Rscript 05_referenceRetest.R <reference sample r> <n cores>
-# Outputs: Results_rolling/w<W>h/reference/ref<r>.csv.gz
+# Outputs: Results/rolling/w<W>h/reference/ref<r>.csv.gz
 #            one row per centre x signal: beta, se, p, nShared
-#          Results_rolling/w<W>h/referenceCovariates/ref<r>.rds
+#          Results/rolling/w<W>h/referenceCovariates/ref<r>.rds
 #            list by centre: centre, donors, covariates (donors x [fixed, PEER])
 # =============================================================================
 

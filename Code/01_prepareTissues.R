@@ -9,8 +9,8 @@
 #
 # Run:     sbatch 01_prepareTissues.sh      (array 1-N_TISSUES)
 # Usage:   Rscript 01_prepareTissues.R <tissue index>
-# Outputs: Results/config.json, Results/tissues/selectedTissues.csv,
-#          Results/tissues/<tissue>.rds, Results/tissues/<tissue>_genes.csv
+# Outputs: Results/config.json, Results/main/tissues/selectedTissues.csv,
+#          Results/tissues/<tissue>.rds, Results/main/tissues/<tissue>_genes.csv
 # =============================================================================
 
 .a <- commandArgs(FALSE); .f <- sub('^--file=', '', .a[grep('^--file=', .a)])

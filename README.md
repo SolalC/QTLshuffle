@@ -2,7 +2,9 @@
 
 Do cis-eQTL found in a narrow window of circadian time disappear when the rest of the day is added?
 
-An R-only prototype on the 50 most rhythmic genes in skeletal muscle is in [`prototype/`](prototype/README.md). The design is being settled there first.
+Code is in `Code/` (SLURM logs in `Code/logs/`). Results are in `Results/` (`main/`, `prototype/`, `rolling/`). Genotype files written by the pipelines are in `/QRISdata/Q5776/QTLshuffle/`.
+
+An R-only prototype on the 50 most rhythmic genes in skeletal muscle is in [`Code/prototype/`](Code/prototype/README.md). The design is being settled there first. The rolling-window design (24 window centres, muscle) is in [`Code/rolling/`](Code/rolling/README.md).
 
 ## Hypothesis
 
@@ -33,16 +35,16 @@ Expression is the GTEx inverse-normal transformed matrix, computed once across a
 ## Run order (Bunya)
 
 ```bash
-mkdir -p logs
+cd Code && mkdir -p logs   # SLURM logs of every pipeline go to Code/logs
 sbatch 01_prepareTissues.sh                             # array 1-10 (R): tissues, rhythmic labels, config.json
 sbatch --dependency=afterok:<01> 02_peerCovariates.sh   # array 1-510 (R, CPU): PEER per window and 24 h reference
 sbatch --dependency=afterok:<02> 03_tensorQTLscan.sh    # array 1-510 (Python, GPU): tensorQTL scans and re-tests
 Rscript 04_summarise.R                                  # empirical tests and null histograms
 ```
 
-Arrays 02 and 03 use the same task numbering (tissue × block of 20 permutations), so task k of 03 can start once task k of 02 has finished. All paths and constants are in `00_config.R`; 01 copies what the Python step needs to `Results/config.json`. Each input path can be overridden by an environment variable prefixed `QTLSHUFFLE_` (see `tests/run_toy_test.sh`).
+Arrays 02 and 03 use the same task numbering (tissue × block of 20 permutations), so task k of 03 can start once task k of 02 has finished. All paths and constants are in `00_config.R`; 01 copies what the Python step needs to `Results/main/config.json`. Each input path can be overridden by an environment variable prefixed `QTLSHUFFLE_` (see `Code/tests/run_toy_test.sh`).
 
-## Outputs (`Results/`)
+## Outputs (`Results/main/`)
 
 | Folder | Content |
 |---|---|
@@ -55,7 +57,7 @@ Arrays 02 and 03 use the same task numbering (tissue × block of 20 permutations
 
 ## Test
 
-`bash tests/run_toy_test.sh` simulates two toy tissues (phase, amplitude and mean eQTL, rhythmic-only and null genes), runs 01 to 04 with 39 DIP permutations and 1000 tensorQTL permutations per gene (on CPU), and checks that
+`bash Code/tests/run_toy_test.sh` simulates two toy tissues (phase, amplitude and mean eQTL, rhythmic-only and null genes), runs 01 to 04 with 39 DIP permutations and 1000 tensorQTL permutations per gene (on CPU), and checks that
 
 - no permutation is missing and 8 fixed covariates are kept;
 - observed vanishing hits exceed the 95th percentile of the null;
@@ -63,7 +65,7 @@ Arrays 02 and 03 use the same task numbering (tissue × block of 20 permutations
 
 Toy result: 87 hits (null mean 32), 46 vanishing (null mean 3.2, empirical p = 0.025, the minimum with 39 permutations); 25/28 phase and 16/17 amplitude hits vanish, 2/38 mean eQTL hits do.
 
-The test uses PCA in place of PEER (`PEER_BACKEND = 'pca_test_only'`). Run it with `PYTHON=/path/to/python bash tests/run_toy_test.sh`.
+The test uses PCA in place of PEER (`PEER_BACKEND = 'pca_test_only'`). Run it with `PYTHON=/path/to/python bash Code/tests/run_toy_test.sh`.
 
 ## Not yet tested
 

@@ -12,10 +12,10 @@
 #
 # Run:     sbatch 01_prepareTissue.sh
 # Usage:   Rscript 01_prepareTissue.R <n cores>
-# Outputs: Results_rolling/data/tissue.rds
-#          Results_rolling/w<W>h/windowCovariates.rds: window table (centre, donor
+# Outputs: Results/rolling/data/tissue.rds
+#          Results/rolling/w<W>h/windowCovariates.rds: window table (centre, donor
 #            rows, n, nPEER) and, per centre, covariates (donors x [fixed, PEER])
-#          Results_rolling/w<W>h/windows.csv
+#          Results/rolling/w<W>h/windows.csv
 # =============================================================================
 
 .a <- commandArgs(FALSE); .f <- sub('^--file=', '', .a[grep('^--file=', .a)])

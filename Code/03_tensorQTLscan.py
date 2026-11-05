@@ -15,13 +15,13 @@
 #      difference z test p < HET_P (conservative: the two samples share
 #      about 1/8 of their donors).
 #
-# All paths and constants come from Results/config.json, written by
+# All paths and constants come from Results/main/config.json, written by
 # 01_prepareTissues.R from 00_config.R.
 #
 # Run:     sbatch 03_tensorQTLscan.sh       (after 02)
-# Usage:   python 03_tensorQTLscan.py <Results/config.json> <task index>
-# Outputs: Results/windowCounts/<tissue>_block<b>.csv  (one row per perm x window)
-#          Results/windowHits/<tissue>_observed.csv    (block 1 only: hits, perm 0)
+# Usage:   python 03_tensorQTLscan.py <Results/main/config.json> <task index>
+# Outputs: Results/main/windowCounts/<tissue>_block<b>.csv  (one row per perm x window)
+#          Results/main/windowHits/<tissue>_observed.csv    (block 1 only: hits, perm 0)
 # =============================================================================
 
 import json

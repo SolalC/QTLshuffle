@@ -19,7 +19,7 @@ suppressPackageStartupMessages({
 .envNum  <- function(var, default) as.numeric(Sys.getenv(var, default))
 
 ROOT        <- .envDir('QTLSHUFFLE_ROOT', '/scratch/user/uqschauq/QTLshuffle/')
-RESULTS_DIR <- .envDir('QTLSHUFFLE_RESULTS', paste0(ROOT, 'Results_rolling/'))
+RESULTS_DIR <- .envDir('QTLSHUFFLE_RESULTS', paste0(ROOT, 'Results/rolling/'))
 
 # --- Inputs (same files as the cd-eQTL analysis) ---------------------------------
 CIRCADIAN_ROOT <- '/scratch/project_mnt/S0007/solal/circadian/'
