@@ -23,6 +23,7 @@ keep <- match(donors, gtexDonorId(fam$V2))
 bim <- readBim(GENOTYPE_PLINK)[, row := .I][sub('^chr', '', chr) == as.character(chrom)]
 message('chr', chrom, ': ', nrow(bim), ' variants, ', length(donors), ' donors')
 if (!nrow(bim)) stop('No variants on chromosome ', chrom)
+if (anyDuplicated(bim$id)) stop('Duplicated variant IDs in ', GENOTYPE_PLINK, '.bim; rerun 02a')
 
 G <- readPlinkChromosome(GENOTYPE_PLINK, bim$row, nrow(fam), keep)
 codes <- matrix(as.integer(G), nrow(G))
