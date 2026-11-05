@@ -36,7 +36,7 @@ j5=$(sbatch --parsable --dependency=afterok:$j4 05_referenceRetest.sh) # array 1
 sbatch --dependency=afterok:$j5 --wrap "module load r/4.4.2-heavy; Rscript 06_collect.R" -A a_imb_cpdg -p general -t 2:00:00 --mem 60G
 ```
 
-Cost: one gene scan (90 donors, 7000 variants, 10 000 permutations) took 7 s on one core here, so about 40 core-hours per window and 1000 core-hours for 24 windows if muscle has 20 000 genes. PEER time is not known: 24 window fits plus 24 000 reference fits (1000 × 24). Time one 05 task (24 fits, 8 at a time) before submitting the array.
+Cost: one gene scan (90 donors, 7000 variants, 10 000 permutations) took 7 s on one core here, so about 40 core-hours per window and 1000 core-hours for 24 windows if muscle has 20 000 genes. PEER time is not known: 24 window fits plus 24 000 reference fits (1000 × 24). Time one 05 task (24 fits in parallel on 24 cores, ~3 h) before submitting the array.
 
 ## Genotype files (`GENO_DIR` = /QRISdata/Q5776/QTLshuffle/)
 
