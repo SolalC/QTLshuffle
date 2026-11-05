@@ -32,7 +32,7 @@ writeLines(c('#IID', keep), keepFile)
 status <- system2(plink2, c('--vcf', GENOTYPE_VCF, '--vcf-half-call', 'missing',
                             '--keep', keepFile, '--var-filter', '--max-alleles', '2',
                             '--chr', '1-22', '--maf', MAF_THRESHOLD, 
-                            '--set-all-var-ids', 'chr@:#:$r:$a', '--new-id-max-allele-len', '50', 'truncate',
+                            '--set-all-var-ids', shQuote('chr@:#:$r:$a'),  # quoted: system2 runs a shell '--new-id-max-allele-len', '50', 'truncate',
                             '--rm-dup', 'exclude-all',
                             '--make-bed', '--out', GENOTYPE_PLINK,
                             '--threads', threads, '--memory', memory))
