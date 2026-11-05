@@ -61,7 +61,7 @@ if (!nrow(signals)) {
   fwrite(tibble(), outFile)
   quit(save = 'no')
 }
-G <- dosage(readRDS(paste0(CALL_DIR, 'indexGenotypes.rds')))
+G <- dosage(readRDS(INDEX_GENO_FILE))
 stopifnot(identical(rownames(G), tis$donors))
 
 res <- map_dfr(refCov, \(rc) {

@@ -1,14 +1,15 @@
 # =============================================================================
-# 02  Genotypes of one chromosome for the tissue's donors
+# 02b Genotypes of one chromosome for the tissue's donors (from the plink file of 02a)
 #
 # Variants of the chromosome with MAF >= MAF_THRESHOLD among the tissue's
 # donors, read from the plink .bed and stored as raw codes (0, 1, 2 copies of
-# the second .bim allele; 3 = missing). Independent of 01 (the donor list is
-# recomputed from the same inputs), so 01 and 02 can run at the same time.
+# the second .bim allele, the VCF REF allele for a plink2 conversion; 3 =
+# missing). Independent of 01 (the donor list is recomputed from the same
+# inputs), so 01 and 02a/02b can run at the same time.
 #
-# Run:     sbatch 02_prepareGenotypes.sh        (array over chromosomes 1-22)
-# Usage:   Rscript 02_prepareGenotypes.R <chromosome>
-# Outputs: Results_rolling/data/genotypes_chr<c>.rds: G (donors x variants, raw),
+# Run:     sbatch 02b_prepareGenotypes.sh        (array over chromosomes 1-22)
+# Usage:   Rscript 02b_prepareGenotypes.R <chromosome>
+# Outputs: GENO_DIR/<tissue>/genotypes_chr<c>.rds: G (donors x variants, raw),
 #          variants (id, pos, a1, a2, maf)
 # =============================================================================
 

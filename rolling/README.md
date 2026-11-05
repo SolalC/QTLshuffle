@@ -8,7 +8,8 @@ Are cis-eQTL found in a narrow window of inferred circadian phase (DIP) larger t
 |---|---|
 | Windows | 24 centres, 0 h to 23 h, 1 h apart; width `WINDOW_WIDTH_H` = 3 h; a donor is in the window if its DIP is in [centre − 1.5 h, centre + 1.5 h), wrapping around midnight (the 0 h window covers 22:30 to 01:30). Centres with < 60 donors are skipped |
 | Covariates | sex, platform, pcr, PC1–5 (GTEx v10 covariate file) and PEER factors recomputed on the window donors (all genes). Number of PEER factors as GTEx: 15 if n < 150, 30 if n < 250, 45 if n < 350, 60 otherwise |
-| Scan | every gene, variants within ±1 Mb of the TSS, MAF ≥ 1 % among the tissue's donors, minor allele count ≥ 10 in the window; `y ~ g + covariates` |
+| Genotypes | GTEx v9 WGS VCF (953 donors, all variants), converted once with plink2: tissue donors, FILTER = PASS, biallelic, chr1–22, MAF ≥ 1 % among the tissue's donors. Dosage counts the REF allele |
+| Scan | every gene, variants within ±1 Mb of the TSS, minor allele count ≥ 10 in the window; `y ~ g + covariates` |
 | eGenes (GTEx) | 10 000 expression permutations per gene, beta-approximated p (tensorQTL's effective-dof fit), Storey q-value with λ = 0.85 across all genes of the window, q ≤ 0.05 |
 | Significant pairs (GTEx) | for each eGene, variants with nominal p ≤ qbeta(p_threshold, shape1, shape2), where p_threshold is midway between the largest pBeta with q ≤ 0.05 and the smallest with q > 0.05 (tensorQTL `post.calculate_qvalues`) |
 | Independent signals | greedy clumping of each eGene's significant variants (as plink `--clump`): the most significant remaining variant is an index variant, and variants with r² > 0.01 with it join its clump. No distance limit within the cis window. LD from all the tissue's donors (see below) |
@@ -25,7 +26,8 @@ Are cis-eQTL found in a narrow window of inferred circadian phase (DIP) larger t
 ```bash
 cd rolling && mkdir -p logs
 j1=$(sbatch --parsable 01_prepareTissue.sh)          # tissue data; PEER for the 24 windows
-j2=$(sbatch --parsable 02_prepareGenotypes.sh)       # array 1-22: genotypes per chromosome (no dependency)
+j2a=$(sbatch --parsable 02a_vcfToPlink.sh)          # full WGS VCF to plink, one pass (set PLINK2 in the script)
+j2=$(sbatch --parsable --dependency=afterok:$j2a 02b_prepareGenotypes.sh)  # array 1-22: genotypes per chromosome
 sbatch --array 1 --dependency=afterok:$j1:$j2 03_windowScan.sh   # time one task first (0 h, chr1)
 j3=$(sbatch --parsable --dependency=afterok:$j1:$j2 03_windowScan.sh)  # array 1-528: 24 centres x 22 chromosomes
 j4=$(sbatch --parsable --dependency=afterok:$j3 04_windowCall.sh)      # eGenes, significant pairs, clumping
@@ -36,6 +38,14 @@ sbatch --dependency=afterok:$j5 --wrap "module load r/4.4.2-heavy; Rscript 06_co
 
 Cost: one gene scan (90 donors, 7000 variants, 10 000 permutations) took 7 s on one core here, so about 40 core-hours per window and 1000 core-hours for 24 windows if muscle has 20 000 genes. PEER time is not known: 24 window fits plus 24 000 reference fits (1000 × 24). Time one 05 task (24 fits, 8 at a time) before submitting the array.
 
+## Genotype files (`GENO_DIR` = /QRISdata/Q5776/QTLshuffle/)
+
+All individual-level genotypes written by the pipeline go to `GENO_DIR`, not to the results folder:
+
+- `plink/GTEx_v9_WGS_<tissue>.{bed,bim,fam,keep,log}`: plink file of the tissue's donors (02a);
+- `<tissue>/genotypes_chr<c>.rds`: per-chromosome genotypes, raw codes (02b);
+- `<tissue>/w<W>h_indexGenotypes.rds`: genotypes of the index variants (04, read by 05).
+
 ## Outputs (`Results_rolling/`)
 
 Everything that is expensive is written to disk and re-used.
@@ -43,7 +53,7 @@ Everything that is expensive is written to disk and re-used.
 | Path | Content |
 |---|---|
 | `data/tissue.rds` | donors, DIP, expression (all genes), fixed covariates |
-| `data/genotypes_chr<c>.rds` | genotypes (tissue donors, MAF ≥ 1 %), raw codes |
+
 | `w3h/windows.csv` | per centre: number of donors, PEER factors, used |
 | `w3h/windowCovariates.rds` | per centre: window donors and covariates (fixed + PEER), donor IDs as row names. 01 re-uses it if the window donors are unchanged |
 | `w3h/scan/c<centre>_chr<c>_{genes,pairs}.csv.gz` | gene-level results (lead variant, pBeta, beta shapes, effective dof) and pairs with p < 0.01 |

@@ -19,7 +19,8 @@
 #            genes.csv.gz            every gene tested, per centre, with q-value
 #            significantPairs.csv.gz significant pairs with their index variant
 #            independent.csv.gz      index variants (one row per signal)
-#            indexGenotypes.rds      raw genotypes of the index variants (all donors), for 05
+#          GENO_DIR/<tissue>/w<W>h_indexGenotypes.rds: raw genotypes of the index
+#            variants (all donors), for 05
 # =============================================================================
 
 .a <- commandArgs(FALSE); .f <- sub('^--file=', '', .a[grep('^--file=', .a)])
@@ -84,4 +85,4 @@ indexG <- map(unique(independent$chr), \(chrom) {
   G <- readRDS(GENO_FILE(chrom))$G
   G[, unique(independent$variant[independent$chr == chrom]), drop = FALSE]
 })
-saveRDS(if (length(indexG)) do.call(cbind, indexG) else NULL, paste0(CALL_DIR, 'indexGenotypes.rds'))
+saveRDS(if (length(indexG)) do.call(cbind, indexG) else NULL, INDEX_GENO_FILE)

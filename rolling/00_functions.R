@@ -3,7 +3,7 @@
 # beta approximation are copied from ../prototype/00_functions.R so that this
 # folder runs on its own.
 #
-#   Data loading   loadDIP, gtexDonorId, tissueDonors, loadTissue, readBim,
+#   Data loading   loadDIP, gtexDonorId, genotypeSampleIds, tissueDonors, loadTissue, readBim,
 #                  readPlinkChromosome, dosage
 #   Windows        circularHourDiff, windowRows, referenceSample
 #   Covariates     runPEER, windowCovariates, covariateBasis, residualise
@@ -26,11 +26,24 @@ gtexDonorId <- function(x) paste0('GTEX-', map_chr(str_split(x, '-'), 2))
 exprPath <- function(t) paste0(GTEX_EXPR_DIR, t, '.v10.normalized_expression.bed.gz')
 covPath  <- function(t) paste0(GTEX_COV_DIR, t, '.v10.covariates.txt')
 
+# Sample IDs of the genotypes: the plink .fam once 02a has made it, otherwise
+# the #CHROM line of the VCF header.
+genotypeSampleIds <- function() {
+  fam <- paste0(GENOTYPE_PLINK, '.fam')
+  if (file.exists(fam)) return(fread(fam, header = FALSE)$V2)
+  con <- gzfile(GENOTYPE_VCF, 'r'); on.exit(close(con))
+  repeat {
+    line <- readLines(con, n = 1)
+    if (!length(line)) stop('No #CHROM line in ', GENOTYPE_VCF)
+    if (startsWith(line, '#CHROM')) return(str_split_1(line, '\t')[-(1:9)])
+  }
+}
+
 # Donors of a tissue with expression, covariates, a DIP and a genotype (sorted,
-# so that 01 and 02 agree without reading each other's output).
+# so that the scripts agree without reading each other's output).
 tissueDonors <- function(tissueName) {
   dip <- loadDIP()
-  genoDonors <- gtexDonorId(fread(paste0(GENOTYPE_PLINK, '.fam'), header = FALSE)$V2)
+  genoDonors <- gtexDonorId(genotypeSampleIds())
   exprIndv <- str_subset(names(fread(exprPath(tissueName), nrows = 0)), '^GTEX')
   covIndv  <- names(fread(covPath(tissueName), nrows = 0))[-1]
   sort(Reduce(intersect, list(dip$SUBJID, exprIndv, covIndv, genoDonors)))

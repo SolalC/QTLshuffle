@@ -27,15 +27,20 @@ CIRCADIAN_ROOT <- '/scratch/project_mnt/S0007/solal/circadian/'
 GTEX_EXPR_DIR  <- .envDir('QTLSHUFFLE_GTEX_EXPR_DIR', '/QRISdata/Q8106/Public/QTL/eQTL_expression_matrices/')
 # GTEx v10 covariates; only sex, platform, pcr and PC1-5 are used (PEER is recomputed)
 GTEX_COV_DIR   <- .envDir('QTLSHUFFLE_GTEX_COV_DIR', '/QRISdata/Q8106/Public/QTL/eQTL_covariates/')
-# GTEx WGS genotypes (plink prefix: .bed/.bim/.fam)
-GENOTYPE_PLINK <- .envPath('QTLSHUFFLE_GENOTYPE_PLINK', paste0(
-  '/QRISdata/Q8106/Controlled/Genotype/filtered/',
-  'GTEx_Analysis_2021-02-11_v9_WholeGenomeSeq_953Indiv_cQTL_subset_inferred'))
+# GTEx v9 WGS genotypes, all variants (953 donors; 634 GB)
+GENOTYPE_VCF   <- .envPath('QTLSHUFFLE_GENOTYPE_VCF',
+  '/QRISdata/Q8106/Controlled/Genotype/GTEx_Analysis_2021-02-11_v9_WholeGenomeSeq_953Indiv.vcf.gz')
+# Every genotype file this pipeline writes (plink, per-chromosome .rds, index
+# variant genotypes) goes here, not to RESULTS_DIR (controlled-access data).
+GENO_DIR       <- .envDir('QTLSHUFFLE_GENO_DIR', '/QRISdata/Q5776/QTLshuffle/')
 # Donor inferred phase (CHIRAL): R object `phi`, radians
 DIP_FILE       <- .envPath('QTLSHUFFLE_DIP_FILE', paste0(CIRCADIAN_ROOT, 'Data/CHIRAL/DIP.RData'))
 
 # --- Scope -------------------------------------------------------------------------
 TISSUE         <- .envPath('QTLSHUFFLE_TISSUE', 'Muscle_Skeletal')
+# plink .bed/.bim/.fam made from GENOTYPE_VCF by 02a (tissue donors, PASS,
+# biallelic, chr1-22, MAF >= MAF_THRESHOLD among the tissue donors)
+GENOTYPE_PLINK <- .envPath('QTLSHUFFLE_GENOTYPE_PLINK', paste0(GENO_DIR, 'plink/GTEx_v9_WGS_', TISSUE))
 CHROMOSOMES    <- as.integer(str_split_1(.envPath('QTLSHUFFLE_CHROMOSOMES', paste(1:22, collapse = ',')), ','))
 
 # --- Windows -------------------------------------------------------------------------
@@ -71,17 +76,18 @@ PEER_BACKEND   <- .envPath('QTLSHUFFLE_PEER_BACKEND', 'peer')
 PEER_RSCRIPT   <- .envPath('QTLSHUFFLE_PEER_RSCRIPT', '/home/uqschauq/software/peer_env/bin/Rscript')
 
 # --- Results ---------------------------------------------------------------------------
-DATA_DIR  <- paste0(RESULTS_DIR, 'data/')                            # 01, 02 (window-free)
+DATA_DIR  <- paste0(RESULTS_DIR, 'data/')                            # 01, 02a, 02b (window-free)
 WIDTH_DIR <- paste0(RESULTS_DIR, 'w', WINDOW_WIDTH_H, 'h/')          # everything per width
 TISSUE_FILE  <- paste0(DATA_DIR, 'tissue.rds')                       # 01
-GENO_FILE    <- \(chr) paste0(DATA_DIR, 'genotypes_chr', chr, '.rds') # 02
+GENO_FILE    <- \(chr) paste0(GENO_DIR, TISSUE, '/genotypes_chr', chr, '.rds') # 02b
+INDEX_GENO_FILE <- paste0(GENO_DIR, TISSUE, '/w', WINDOW_WIDTH_H, 'h_indexGenotypes.rds') # 04
 WINDOW_FILE  <- paste0(WIDTH_DIR, 'windowCovariates.rds')            # 01
 SCAN_DIR  <- paste0(WIDTH_DIR, 'scan/')                              # 03
 CALL_DIR  <- paste0(WIDTH_DIR, 'calls/')                             # 04
 REF_DIR   <- paste0(WIDTH_DIR, 'reference/')                         # 05: re-test results
 REF_COV_DIR <- paste0(WIDTH_DIR, 'referenceCovariates/')            # 05: donors, PEER, covariates
 OUT_DIR   <- paste0(WIDTH_DIR, 'results/')                           # 06
-for (.d in c(DATA_DIR, SCAN_DIR, CALL_DIR, REF_DIR, REF_COV_DIR, OUT_DIR)) dir.create(.d, recursive = TRUE, showWarnings = FALSE)
+for (.d in c(paste0(GENO_DIR, TISSUE), DATA_DIR, SCAN_DIR, CALL_DIR, REF_DIR, REF_COV_DIR, OUT_DIR)) dir.create(.d, recursive = TRUE, showWarnings = FALSE)
 
 .a <- commandArgs(FALSE); .f <- sub('^--file=', '', .a[grep('^--file=', .a)])
 CODE_DIR <- if (length(.f)) dirname(normalizePath(.f)) else normalizePath('.')
