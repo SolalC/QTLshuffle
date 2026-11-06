@@ -39,9 +39,9 @@ readAll <- \(what) rbindlist(map(paste0(expected$stem, what, '.csv.gz'), \(f) {
   x
 }))
 
-genes <- readAll('genes')
+genes <- as_tibble(readAll('genes'))
 nTests <- genes %>% distinct(centre, chr, nTests) %>% count(centre, wt = nTests, name = 'nTestsWindow')
-pairs <- readAll('pairs') %>%
+pairs <- as_tibble(readAll('pairs')) %>%
   left_join(nTests, by = 'centre') %>%
   group_by(centre) %>% mutate(qval = p.adjust(pNominal, 'BH', n = nTestsWindow[1])) %>% ungroup()
 sig <- filter(pairs, qval < PAIR_FDR) %>%
