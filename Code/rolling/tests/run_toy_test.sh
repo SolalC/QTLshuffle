@@ -1,9 +1,8 @@
 #!/bin/bash
 # Runs the rolling-window pipeline on simulated toy data (no real data) and
 # checks the output. Needs MatrixEQTL, BEDMatrix, genio and plink2 (PLINK2 in
-# 00_config.R, or QTLSHUFFLE_PLINK2): run it on Bunya, e.g.
-#   sbatch -A a_imb_cpdg -p general -c 4 --mem 16G -t 1:00:00 --wrap \
-#     "module load r/4.4.2-heavy; bash tests/run_toy_test.sh"
+# 00_config.R, or QTLSHUFFLE_PLINK2): run it on Bunya with
+#   sbatch tests/run_toy_test_slurm.sh   (from Code/rolling)
 # PEER is replaced by PCA here only to keep the test fast; the analysis uses PEER.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"

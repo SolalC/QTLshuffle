@@ -69,8 +69,7 @@ R ≥ 4.4 (`module load r/4.4.2-heavy`) with tidyverse, data.table, MatrixEQTL, 
 
 ```bash
 cd /scratch/user/uqschauq/QTLshuffle/Code/rolling
-sbatch -A a_imb_cpdg -p general -c 4 --mem 16G -t 2:00:00 -o ../logs/rollToyTest.out -e ../logs/rollToyTest.err \
-  --wrap "module load r/4.4.2-heavy; bash tests/run_toy_test.sh"
+sbatch tests/run_toy_test_slurm.sh      # logs: ../logs/rollToyTest.{out,err}
 ```
 
 The checks: 24 centres with the 0 h window wrapping around midnight; no missing reference samples; phase and amplitude QTL fall outside the 24 h distribution more often than mean eQTL.
