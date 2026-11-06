@@ -5,7 +5,7 @@
 #   sbatch tests/run_toy_test_slurm.sh   (from Code/rolling)
 # PEER is replaced by PCA here only to keep the test fast; the analysis uses PEER.
 set -euo pipefail
-here="$(cd "$(dirname "$0")" && pwd)"
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 toy="$here/toy"
 rm -rf "$toy"; mkdir -p "$toy"
 cd "$here/.."

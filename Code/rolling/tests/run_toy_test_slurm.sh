@@ -13,4 +13,7 @@
 # Submit from Code/rolling: sbatch tests/run_toy_test.sh.sbatch
 cd "${SLURM_SUBMIT_DIR}"
 module load r/4.4.2-heavy
-NCORE=$SLURM_CPUS_PER_TASK bash tests/run_toy_test.sh
+# Sourced, not run with bash: on Bunya, Rscript from the R module is only
+# visible in this login shell, not in a child bash.
+export NCORE=$SLURM_CPUS_PER_TASK
+source tests/run_toy_test.sh
