@@ -12,7 +12,7 @@
 #SBATCH -o ../logs/%x_%a.out
 #SBATCH -e ../logs/%x_%a.err
 
-# Submit after 01 and 02b: sbatch --dependency=afterok:<01>:<02b> 03_windowScan.sh
+# Submit after 01 and 02a: sbatch --dependency=afterok:<01>:<02a> 03_windowScan.sh
 # Array 1-528 = 24 centres x 22 chromosomes; task k: centre (k-1) %/% 22, chromosome (k-1) %% 22 + 1.
 # Timing on Bunya: chr1 (2208 genes, 91 donors) took 16.4 min on 16 cores.
 cd "${SLURM_SUBMIT_DIR}"

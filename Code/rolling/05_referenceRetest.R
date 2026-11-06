@@ -61,8 +61,8 @@ if (!nrow(signals)) {
   fwrite(tibble(), outFile)
   quit(save = 'no')
 }
-G <- dosage(readRDS(INDEX_GENO_FILE))
-stopifnot(identical(rownames(G), tis$donors))
+geno <- openGenotypes(tis$donors)
+G <- readGenotypes(geno, seq_along(tis$donors), match(unique(signals$variant), geno$bim$id))
 
 res <- map_dfr(refCov, \(rc) {
   s <- filter(signals, centre == rc$centre)

@@ -8,7 +8,7 @@
 # many VCF IDs are missing ('.'), and variants whose new ID is duplicated
 # dropped (later steps index variants by ID).
 # Writes a plink 1 .bed/.bim/.fam, in VCF order (sorted by chromosome and
-# position), that 02b reads one chromosome at a time.
+# position), read directly by 03-05 with BEDMatrix.
 #
 # Run:     sbatch 02a_vcfToPlink.sh
 # Usage:   Rscript 02a_vcfToPlink.R <plink2 executable> <threads> <memory MB>

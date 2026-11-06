@@ -8,7 +8,7 @@ Are cis-eQTL found in a narrow window of inferred circadian phase (DIP) larger t
 |---|---|
 | Windows | 24 centres, 0 h to 23 h, 1 h apart; width `WINDOW_WIDTH_H` = 3 h; a donor is in the window if its DIP is in [centre − 1.5 h, centre + 1.5 h), wrapping around midnight (the 0 h window covers 22:30 to 01:30). Centres with < 60 donors are skipped |
 | Covariates | sex, platform, pcr, PC1–5 (GTEx v10 covariate file) and PEER factors recomputed on the window donors (all genes). Number of PEER factors as GTEx: 15 if n < 150, 30 if n < 250, 45 if n < 350, 60 otherwise |
-| Genotypes | GTEx v9 WGS VCF (953 donors, all variants), converted once with plink2: tissue donors, FILTER = PASS, biallelic, chr1–22, MAF ≥ 1 % among the tissue's donors. Dosage counts the REF allele |
+| Genotypes | GTEx v9 WGS VCF (953 donors, all variants), converted once with plink2: tissue donors, FILTER = PASS, biallelic, chr1–22, MAF ≥ 1 % among the tissue's donors. Dosage counts the ALT allele (plink A1) |
 | Scan | every gene, variants within ±1 Mb of the TSS, minor allele count ≥ 10 in the window; `y ~ g + covariates` |
 | eGenes (GTEx) | 10 000 expression permutations per gene, beta-approximated p (tensorQTL's effective-dof fit), Storey q-value with λ = 0.85 across all genes of the window, q ≤ 0.05 |
 | Significant pairs (GTEx) | for each eGene, variants with nominal p ≤ qbeta(p_threshold, shape1, shape2), where p_threshold is midway between the largest pBeta with q ≤ 0.05 and the smallest with q > 0.05 (tensorQTL `post.calculate_qvalues`) |
@@ -26,8 +26,7 @@ Are cis-eQTL found in a narrow window of inferred circadian phase (DIP) larger t
 ```bash
 cd /scratch/user/uqschauq/QTLshuffle/Code && mkdir -p logs && cd rolling   # logs go to Code/logs
 j1=$(sbatch --parsable 01_prepareTissue.sh)          # tissue data; PEER for the 24 windows
-j2a=$(sbatch --parsable 02a_vcfToPlink.sh)          # full WGS VCF to plink, one pass (set PLINK2 in the script)
-j2=$(sbatch --parsable --dependency=afterok:$j2a 02b_prepareGenotypes.sh)  # array 1-22: genotypes per chromosome
+j2=$(sbatch --parsable 02a_vcfToPlink.sh)           # full WGS VCF to plink, one pass
 sbatch --array 1 --dependency=afterok:$j1:$j2 03_windowScan.sh   # time one task first (0 h, chr1)
 j3=$(sbatch --parsable --dependency=afterok:$j1:$j2 03_windowScan.sh)  # array 1-528: 24 centres x 22 chromosomes
 j4=$(sbatch --parsable --dependency=afterok:$j3 04_windowCall.sh)      # eGenes, significant pairs, clumping
@@ -40,11 +39,7 @@ Cost: one gene scan (90 donors, 7000 variants, 10 000 permutations) took 7 s on 
 
 ## Genotype files (`GENO_DIR` = /QRISdata/Q5776/QTLshuffle/)
 
-All individual-level genotypes written by the pipeline go to `GENO_DIR`, not to the results folder:
-
-- `plink/GTEx_v9_WGS_<tissue>.{bed,bim,fam,keep,log}`: plink file of the tissue's donors (02a);
-- `<tissue>/genotypes_chr<c>.rds`: per-chromosome genotypes, raw codes (02b);
-- `<tissue>/w<W>h_indexGenotypes.rds`: genotypes of the index variants (04, read by 05).
+The only genotype file the pipeline writes is the plink file of the tissue's donors (02a), in `GENO_DIR`, not in the results folder: `plink/GTEx_v9_WGS_<tissue>.{bed,bim,fam,keep,log}`. Steps 03 to 05 read it directly with BEDMatrix (memory-mapped); variant and sample tables are read with genio. Dosage counts the A1 (ALT) allele.
 
 ## Outputs (`Results/rolling/`)
 
@@ -65,9 +60,13 @@ Everything that is expensive is written to disk and re-used.
 | `w3h/results/rollingWindow.csv.gz` | **main table**: one row per signal × centre, with the window β, SE and p; nRef, refMean, refSD; zRef = (β − refMean)/refSD; two-sided pEmp; one-sided pEmpLarger (reference β at least as large in the window's direction); then `beta_ref_1` to `beta_ref_1000` |
 | `w3h/results/referenceLong.csv.gz` | β, SE and p of every reference association |
 
+## Requirements
+
+R ≥ 4.4 (`module load r/4.4.2-heavy`) with tidyverse, data.table, qvalue, matrixStats, BEDMatrix and genio; plink2 for 02a; PEER in its own R 3.4 environment (`PEER_RSCRIPT`).
+
 ## Test
 
-`bash tests/run_toy_test.sh` uses the toy data from `../tests/make_toy_data.R`: 560 donors, 300 genes, 2 chromosomes. It runs with 1000 permutations per gene, 40 reference samples and PCA in place of PEER, and took 4 min on 4 cores. 21 of 24 centres had ≥ 60 donors.
+`bash tests/run_toy_test.sh` uses the toy data from `../tests/make_toy_data.R`: 560 donors, 300 genes, 2 chromosomes. It needs BEDMatrix and genio (run it on Bunya). It runs with 1000 permutations per gene, 40 reference samples and PCA in place of PEER, and took 4 min on 4 cores. 21 of 24 centres had ≥ 60 donors.
 
 | Toy gene type | Signals (centre × gene) | pEmp < 0.05 | pEmpLarger < 0.05 |
 |---|---|---|---|

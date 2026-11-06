@@ -25,7 +25,6 @@ export QTLSHUFFLE_N_REF=40
 export QTLSHUFFLE_PEER_BACKEND=pca_test_only
 
 Rscript 01_prepareTissue.R $nCore
-for c in 1 2; do Rscript 02b_prepareGenotypes.R $c; done
 for t in $(seq 1 48); do Rscript 03_windowScan.R $t $nCore 2>&1 | grep -E 'tested|skipped' || true; done
 Rscript 04_windowCall.R $nCore
 for r in $(seq 1 40); do Rscript 05_referenceRetest.R $r $nCore 2>&1 | grep -iE 'error' || true; done

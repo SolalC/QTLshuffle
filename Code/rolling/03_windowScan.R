@@ -5,6 +5,7 @@
 # within CIS_WINDOW of the TSS with minor allele count >= MIN_MAC among the
 # window donors, tested with the window covariates from 01:
 #   y ~ g + sex + platform + pcr + PC1-5 + peerK(n) PEER factors.
+# Genotypes are read from the plink file of 02a (BEDMatrix).
 # Gene level: lead variant, NPERM_GENO expression permutations (Freedman-Lane),
 # beta-approximated p (tensorQTL). Pair level: every pair with nominal
 # p < PAIR_P_STORE is kept for 04.
@@ -32,24 +33,26 @@ if (!win$windows$used[centreIdx]) {
   quit(save = 'no')
 }
 tis  <- readRDS(TISSUE_FILE)
-geno <- readRDS(GENO_FILE(chrom))
+geno <- openGenotypes(tis$donors)
 rows <- win$windows$rows[[centreIdx]]
-stopifnot(identical(rownames(geno$G), tis$donors))
 Q <- covariateBasis(win$cov[[centreIdx]])
 message('Centre ', centre, ' h, chr', chrom, ': ', length(rows), ' donors, ',
         ncol(win$cov[[centreIdx]]), ' covariates')
 
 genes <- tis$pos[sub('^chr', '', chr) == as.character(chrom)]
 genes[, geneIdx := match(gene_id, colnames(tis$E))]
-Gw <- geno$G[rows, , drop = FALSE]
-lo <- findInterval(genes$start - CIS_WINDOW - 1, geno$variants$pos) + 1
-hi <- findInterval(genes$start + CIS_WINDOW, geno$variants$pos)
+cols <- which(geno$bim$chr == as.character(chrom))
+pos  <- geno$bim$pos[cols]
+stopifnot(!is.unsorted(pos))
+Gw <- readGenotypes(geno, rows, cols)          # window donors x chromosome variants
+lo <- findInterval(genes$start - CIS_WINDOW - 1, pos) + 1
+hi <- findInterval(genes$start + CIS_WINDOW, pos)
 message(nrow(genes), ' genes, ', ncol(Gw), ' variants')
 
 t0 <- Sys.time()
 res <- mclapply(seq_len(nrow(genes)), \(i) {
   if (hi[i] < lo[i]) return(NULL)
-  out <- geneScan(tis$E[rows, genes$geneIdx[i]], dosage(Gw[, lo[i]:hi[i], drop = FALSE]), Q,
+  out <- geneScan(tis$E[rows, genes$geneIdx[i]], Gw[, lo[i]:hi[i], drop = FALSE], Q,
                   seed = SEED + 1e5 * centreIdx + genes$geneIdx[i])
   if (!is.null(out)) map(out, \(x) mutate(x, gene = genes$gene_id[i], .before = 1))
 }, mc.cores = nCore, mc.preschedule = TRUE)

@@ -19,8 +19,6 @@
 #            genes.csv.gz            every gene tested, per centre, with q-value
 #            significantPairs.csv.gz significant pairs with their index variant
 #            independent.csv.gz      index variants (one row per signal)
-#          GENO_DIR/<tissue>/w<W>h_indexGenotypes.rds: raw genotypes of the index
-#            variants (all donors), for 05
 # =============================================================================
 
 .a <- commandArgs(FALSE); .f <- sub('^--file=', '', .a[grep('^--file=', .a)])
@@ -55,19 +53,16 @@ pairs <- rbindlist(map(sprintf('%sc%02d_chr%d_pairs.csv.gz', SCAN_DIR, expected$
   arrange(centre, gene, pNominal)
 message(nrow(pairs), ' significant pairs')
 
-# Clumping, one chromosome at a time (genotypes of all the tissue's donors).
-clumped <- map_dfr(CHROMOSOMES, \(chrom) {
-  pc <- filter(pairs, chr == chrom)
-  if (!nrow(pc)) return(NULL)
-  G <- readRDS(GENO_FILE(chrom))$G
-  groups <- split(pc, interaction(pc$centre, pc$gene, drop = TRUE))
-  res <- mclapply(groups, \(x) mutate(x, indexVariant = clumpGene(dosage(G[, x$variant, drop = FALSE]))),
-                  mc.cores = nCore)
-  failed <- map_lgl(res, \(x) inherits(x, 'try-error'))
-  if (any(failed)) stop('Clumping failed: ', as.character(res[[which(failed)[1]]]))
-  bind_rows(res)
-})
-if (!nrow(clumped)) clumped <- mutate(pairs, indexVariant = character())
+# Clumping per centre x eGene, with genotypes of all the tissue's donors (BEDMatrix).
+geno <- openGenotypes(readRDS(TISSUE_FILE)$donors)
+groups <- split(pairs, interaction(pairs$centre, pairs$gene, drop = TRUE))
+clumped <- mclapply(groups, \(x) {
+  G <- readGenotypes(geno, seq_along(geno$rows), match(x$variant, geno$bim$id))
+  mutate(x, indexVariant = clumpGene(G))
+}, mc.cores = nCore)
+failed <- map_lgl(clumped, \(x) inherits(x, 'try-error'))
+if (any(failed)) stop('Clumping failed: ', as.character(clumped[[which(failed)[1]]]))
+clumped <- bind_rows(clumped)
 fwrite(clumped, paste0(CALL_DIR, 'significantPairs.csv.gz'))
 
 independent <- clumped %>%
@@ -81,8 +76,3 @@ fwrite(independent, paste0(CALL_DIR, 'independent.csv.gz'))
 message(nrow(independent), ' independent signals in ', n_distinct(independent[c('centre', 'gene')]),
         ' centre x eGene combinations')
 
-indexG <- map(unique(independent$chr), \(chrom) {
-  G <- readRDS(GENO_FILE(chrom))$G
-  G[, unique(independent$variant[independent$chr == chrom]), drop = FALSE]
-})
-saveRDS(if (length(indexG)) do.call(cbind, indexG) else NULL, INDEX_GENO_FILE)

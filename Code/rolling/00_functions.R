@@ -1,10 +1,11 @@
 # =============================================================================
 # Rolling-window functions. Sourced by 00_config.R. Loading, PEER and the
 # beta approximation are copied from ../prototype/00_functions.R so that this
-# folder runs on its own.
+# folder runs on its own. Genotypes are read with the BEDMatrix and genio
+# packages.
 #
-#   Data loading   loadDIP, gtexDonorId, genotypeSampleIds, tissueDonors, loadTissue, readBim,
-#                  readPlinkChromosome, dosage
+#   Data loading   loadDIP, gtexDonorId, genotypeSampleIds, tissueDonors, loadTissue,
+#                  openGenotypes, readGenotypes (BEDMatrix, genio)
 #   Windows        circularHourDiff, windowRows, referenceSample
 #   Covariates     runPEER, windowCovariates, covariateBasis, residualise
 #   Association    meanImpute, minorAlleleCount, pFromR2, betaShape1FromDof,
@@ -26,17 +27,14 @@ gtexDonorId <- function(x) paste0('GTEX-', map_chr(str_split(x, '-'), 2))
 exprPath <- function(t) paste0(GTEX_EXPR_DIR, t, '.v10.normalized_expression.bed.gz')
 covPath  <- function(t) paste0(GTEX_COV_DIR, t, '.v10.covariates.txt')
 
-# Sample IDs of the genotypes: the plink .fam once 02a has made it, otherwise
-# the #CHROM line of the VCF header.
+# Sample IDs of the genotypes: the plink .fam once 02a has made it (genio),
+# otherwise the #CHROM line of the VCF header (grep stops at the first match).
 genotypeSampleIds <- function() {
-  fam <- paste0(GENOTYPE_PLINK, '.fam')
-  if (file.exists(fam)) return(fread(fam, header = FALSE)$V2)
-  con <- gzfile(GENOTYPE_VCF, 'r'); on.exit(close(con))
-  repeat {
-    line <- readLines(con, n = 1)
-    if (!length(line)) stop('No #CHROM line in ', GENOTYPE_VCF)
-    if (startsWith(line, '#CHROM')) return(str_split_1(line, '\t')[-(1:9)])
-  }
+  if (file.exists(paste0(GENOTYPE_PLINK, '.fam')))
+    return(genio::read_fam(GENOTYPE_PLINK, verbose = FALSE)$id)
+  header <- fread(cmd = paste('zcat', shQuote(GENOTYPE_VCF), "| grep -m 1 '^#CHROM'"),
+                  sep = '\t', header = TRUE, nrows = 0)
+  names(header)[-(1:9)]
 }
 
 # Donors of a tissue with expression, covariates, a DIP and a genotype (sorted,
@@ -71,38 +69,28 @@ loadTissue <- function(tissueName) {
        E = E, pos = pos, cov = covMat)
 }
 
-readBim <- function(prefix) {
-  fread(paste0(prefix, '.bim'), header = FALSE,
-        col.names = c('chr', 'id', 'cm', 'pos', 'a1', 'a2'))
+# Genotypes of the plink file GENOTYPE_PLINK (made by 02a), memory-mapped with
+# BEDMatrix: nothing is read until a subset is taken. `rows` maps `donors` (GTEx
+# subject IDs) to .fam rows; `bim` has chr (without 'chr'), id, pos, alt (A1)
+# and ref (A2). BEDMatrix counts copies of the A1 allele (alt for a plink2
+# conversion); see tests/check_bedmatrix.R.
+openGenotypes <- function(donors) {
+  fam <- genio::read_fam(GENOTYPE_PLINK, verbose = FALSE)
+  bim <- genio::read_bim(GENOTYPE_PLINK, verbose = FALSE)
+  bim$chr <- sub('^chr', '', bim$chr)
+  if (anyDuplicated(bim$id)) stop('Duplicated variant IDs in ', GENOTYPE_PLINK, '.bim')
+  rows <- match(donors, gtexDonorId(fam$id))
+  if (anyNA(rows)) stop(sum(is.na(rows)), ' donors missing from ', GENOTYPE_PLINK, '.fam')
+  list(X = BEDMatrix::BEDMatrix(GENOTYPE_PLINK, n = nrow(fam), p = nrow(bim)),
+       rows = rows, bim = bim)
 }
 
-# Genotype codes of the .bim rows `idx` (contiguous, one chromosome) for the
-# .fam samples `keep`, read from the SNP-major .bed in chunks. Returns a raw
-# matrix (samples x variants): copies of the second .bim allele (0, 1, 2), 3 =
-# missing. Raw keeps a whole chromosome in memory at 1 byte per genotype.
-readPlinkChromosome <- function(prefix, idx, nSample, keep, chunk = 20000) {
-  stopifnot(all(diff(idx) == 1))
-  nByte <- ceiling(nSample / 4)
-  code  <- c(0L, 3L, 1L, 2L)   # 2-bit codes 00, 01 (missing), 10, 11
-  lut   <- sapply(0:255, \(b) code[bitwAnd(bitwShiftR(b, c(0, 2, 4, 6)), 3L) + 1])
-  con <- file(paste0(prefix, '.bed'), 'rb'); on.exit(close(con))
-  if (!identical(readBin(con, 'raw', 3), as.raw(c(0x6c, 0x1b, 0x01))))
-    stop('Not a SNP-major plink .bed')
-  G <- matrix(as.raw(3), length(keep), length(idx))
-  for (s in seq(1, length(idx), by = chunk)) {
-    j <- s:min(s + chunk - 1, length(idx))
-    seek(con, 3 + (idx[j[1]] - 1) * nByte)
-    b <- as.integer(readBin(con, 'raw', nByte * length(j)))
-    codes <- matrix(lut[, b + 1], 4 * nByte, length(j))
-    G[, j] <- as.raw(codes[keep, , drop = FALSE])
-  }
-  G
-}
-
-# Raw genotype codes to dosages (NA for missing).
-dosage <- function(Graw) {
-  G <- matrix(as.numeric(as.integer(Graw)), nrow(Graw), ncol(Graw), dimnames = dimnames(Graw))
-  G[G == 3] <- NA
+# Dosages (NA if missing) of donors `donorIdx` (indices into `donors`) at .bim
+# rows `cols`, as a numeric matrix with variant IDs as column names.
+readGenotypes <- function(geno, donorIdx, cols) {
+  G <- geno$X[geno$rows[donorIdx], cols, drop = FALSE]
+  G <- matrix(as.numeric(G), nrow(G), ncol(G))
+  colnames(G) <- geno$bim$id[cols]
   G
 }
 
