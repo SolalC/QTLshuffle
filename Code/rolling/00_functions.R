@@ -1,16 +1,14 @@
 # =============================================================================
-# Rolling-window functions. Sourced by 00_config.R. Loading, PEER and the
-# beta approximation are copied from ../prototype/00_functions.R so that this
-# folder runs on its own. Genotypes are read with the BEDMatrix and genio
+# Rolling-window functions. Sourced by 00_config.R. Loading and PEER are
+# copied from ../prototype/00_functions.R so that this folder runs on its own. Genotypes are read with the BEDMatrix and genio
 # packages.
 #
 #   Data loading   loadDIP, gtexDonorId, genotypeSampleIds, tissueDonors, loadTissue,
 #                  openGenotypes, readGenotypes (BEDMatrix, genio)
 #   Windows        circularHourDiff, windowRows, referenceSample
-#   Covariates     runPEER, windowCovariates, covariateBasis, residualise
-#   Association    meanImpute, minorAlleleCount, pFromR2, betaShape1FromDof,
-#                  betaApprox, colMaxAbs, geneScan, pairTest
-#   Calls          gtexQvalue, clumpGene
+#   Covariates     runPEER, windowCovariates
+#   Association    meanImpute, minorAlleleCount, pairTest (lm)
+# The window scan uses MatrixEQTL (03) and clumping uses plink2 --clump (04).
 # =============================================================================
 
 # --- Data loading --------------------------------------------------------------
@@ -145,16 +143,7 @@ windowCovariates <- function(tis, rows) {
   cbind(tis$cov[rows, , drop = FALSE], runPEER(tis$E[rows, , drop = FALSE], peerK(length(rows))))
 }
 
-# Orthonormal basis of [1, covariates], dropping constant or collinear columns.
-covariateBasis <- function(C) {
-  C <- C[, apply(C, 2, \(x) var(x) > 0), drop = FALSE]
-  q <- qr(cbind(1, C))
-  qr.Q(q)[, seq_len(q$rank), drop = FALSE]
-}
-
-residualise <- function(Y, Q) Y - Q %*% crossprod(Q, Y)
-
-# --- Association ---------------------------------------------------------------
+# --- Association -----------------------------------------------------------------
 
 meanImpute <- function(G) {
   na <- which(is.na(G), arr.ind = TRUE)
@@ -167,137 +156,16 @@ minorAlleleCount <- function(G) {
   pmin(ac, 2 * nrow(G) - ac)
 }
 
-# Beta approximation of the permutation p-value, as tensorQTL
-# (core.fit_beta_parameters / calculate_beta_approx_pval):
-#   1. effective degrees of freedom: the dof at which the permutation minimum
-#      p-values, converted from the maximum r2, have a moment-matched first
-#      beta shape parameter of 1 (root found on log dof);
-#   2. beta shape parameters by maximum likelihood on those p-values (start at
-#      the moment estimates);
-#   3. p_beta = beta CDF of the nominal p recomputed with the effective dof.
-pFromR2 <- function(r2, dof) 2 * pt(-sqrt(dof * r2 / (1 - r2)), dof)
-
-betaShape1FromDof <- function(r2, dof) {
-  p <- pFromR2(r2, dof); m <- mean(p); v <- mean((p - m)^2)
-  m * (m * (1 - m) / v - 1)
-}
-
-betaApprox <- function(r2Perm, r2Nominal, dofInit) {
-  f <- \(lx) log(betaShape1FromDof(r2Perm, exp(lx)))
-  trueDof <- tryCatch(exp(uniroot(f, log(dofInit) + c(-3, 3), extendInt = 'yes', tol = 1e-4)$root),
-                      error = \(e) optimize(\(x) abs(betaShape1FromDof(r2Perm, x) - 1),
-                                             c(1, 10 * dofInit))$minimum)
-  p <- pFromR2(r2Perm, trueDof); m <- mean(p); v <- mean((p - m)^2)
-  s1 <- m * (m * (1 - m) / v - 1); s2 <- s1 * (1 / m - 1)
-  nll <- \(s) if (any(s <= 0)) Inf else -sum(dbeta(p, s[1], s[2], log = TRUE))
-  sh <- optim(c(s1, s2), nll)$par
-  pTrue <- pFromR2(r2Nominal, trueDof)
-  c(pBeta = pbeta(pTrue, sh[1], sh[2]), shape1 = sh[1], shape2 = sh[2], trueDof = trueDof)
-}
-
-colMaxAbs <- if (requireNamespace('matrixStats', quietly = TRUE)) {
-  \(X) matrixStats::colMaxs(abs(X))
-} else {
-  \(X) apply(abs(X), 2, max)
-}
-
-# cis scan of one gene in one donor set, following tensorQTL map_cis:
-# expression and genotypes residualised on the covariates; lead variant = largest
-# |correlation|; NPERM_GENO permutations of the residualised expression give the
-# null distribution of the gene's minimum p; beta-approximated p with tensorQTL's
-# effective degrees of freedom (betaApprox). One deliberate difference: the
-# permuted residuals are residualised again (Freedman-Lane), because tensorQTL's
-# plain residual permutation is anti-conservative when the covariates are many
-# relative to n (~24 covariates for ~90 window donors; see ../prototype/README.md).
-# y: expression (n), G: dosages (n x cis variants), Q: covariate basis.
-# Returns the gene-level result and every pair with nominal p < PAIR_P_STORE.
-geneScan <- function(y, G, Q, seed, nperm = NPERM_GENO) {
-  n  <- length(y); df <- n - ncol(Q) - 1
-  G  <- meanImpute(G)
-  G  <- G[, minorAlleleCount(G) >= MIN_MAC, drop = FALSE]
-  if (!ncol(G)) return(NULL)
-  Gr <- residualise(G, Q)
-  ok <- colSums(Gr^2) > 1e-8
-  Gr <- Gr[, ok, drop = FALSE]
-  if (!ncol(Gr)) return(NULL)
-  yr <- as.vector(residualise(y, Q))
-  sxx <- colSums(Gr^2); syy <- sum(yr^2)
-  Gn <- sweep(Gr, 2, sqrt(sxx), '/')
-  yn <- yr / sqrt(syy)
-
-  r    <- as.vector(crossprod(Gn, yn))
-  tval <- r * sqrt(df / (1 - r^2))
-  p    <- 2 * pt(-abs(tval), df)
-  beta <- r * sqrt(syy / sxx)
-  se   <- abs(beta / tval)
-  j <- which.max(abs(r))
-
-  set.seed(seed)
-  rMax <- unlist(map(split(seq_len(nperm), ceiling(seq_len(nperm) / 1000)), \(chunk) {
-    P <- vapply(chunk, \(i) yn[sample.int(n)], numeric(n))
-    # Freedman-Lane: permuted residuals residualised on the covariates again.
-    colMaxAbs(crossprod(Gn, P) / rep(sqrt(1 - colSums(crossprod(Q, P)^2)), each = ncol(Gn)))
-  }))
-  ba <- betaApprox(rMax^2, r[j]^2, df)
-  keep <- which(p < PAIR_P_STORE)
-  list(lead = tibble(variant = colnames(Gr)[j], nVar = ncol(Gr), n = n, dof = df,
-                     beta = beta[j], se = se[j], pNominal = p[j],
-                     pPerm = (1 + sum(rMax >= abs(r[j]))) / (1 + nperm),
-                     pBeta = ba[['pBeta']], betaShape1 = ba[['shape1']],
-                     betaShape2 = ba[['shape2']], trueDof = ba[['trueDof']]),
-       pairs = tibble(variant = colnames(Gr)[keep], beta = beta[keep], se = se[keep],
-                      pNominal = p[keep]))
-}
-
-# Variant-gene pairs re-tested in another donor set (same model). G: dosages
-# (n x variants, one column per pair); Y: expression (n x genes, one column per
-# pair). Pairs with minor allele count < MIN_MAC in the set are NA.
-pairTest <- function(Y, G, Q) {
-  df <- nrow(Y) - ncol(Q) - 1
-  G <- meanImpute(G)
-  Gr <- residualise(G, Q); Yr <- residualise(Y, Q)
-  sxx <- colSums(Gr^2)
-  b  <- colSums(Gr * Yr) / sxx
-  se <- sqrt(pmax(colSums(Yr^2) - b^2 * sxx, 0) / df / sxx)
-  p  <- 2 * pt(-abs(b / se), df)
-  bad <- minorAlleleCount(G) < MIN_MAC | sxx < 1e-8
-  b[bad] <- NA; se[bad] <- NA; p[bad] <- NA
-  tibble(beta = b, se = se, p = p)
-}
-
-# --- Calls -----------------------------------------------------------------------
-
-# eGenes and nominal thresholds as tensorQTL post.calculate_qvalues (GTEx):
-# Storey q-value of pBeta (R qvalue, lambda = QVALUE_LAMBDA); eGene if q <=
-# GENE_FDR; pthreshold midway between the largest pBeta with q <= GENE_FDR and
-# the smallest with q > GENE_FDR; gene-level nominal threshold
-# qbeta(pthreshold, shape1, shape2).
-gtexQvalue <- function(genes) {
-  q <- qvalue::qvalue(genes$pBeta, lambda = QVALUE_LAMBDA)$qvalues
-  lb <- max(genes$pBeta[q <= GENE_FDR], -Inf)
-  ub <- min(genes$pBeta[q > GENE_FDR], Inf)
-  pthreshold <- if (is.finite(lb) && is.finite(ub)) (lb + ub) / 2 else if (is.finite(lb)) lb else NA
-  mutate(genes, qval = q, eGene = q <= GENE_FDR, pthreshold = pthreshold,
-         pvalNominalThreshold = qbeta(pthreshold, betaShape1, betaShape2))
-}
-
-# Greedy clumping of one gene's significant variants (as plink --clump with
-# p1 = p2 = the gene's nominal threshold, r2 = CLUMP_R2, no distance limit
-# within the cis window): the most significant remaining variant is an index
-# variant; variants with r2 > CLUMP_R2 with it join its clump. G: dosages of the
-# variants (donors x variants), ordered by increasing p. Returns, per variant,
-# the index variant of its clump.
-clumpGene <- function(G) {
-  G <- meanImpute(G)
-  index <- rep(NA_character_, ncol(G)); names(index) <- colnames(G)
-  left <- seq_len(ncol(G))
-  while (length(left)) {
-    i <- left[1]
-    r2 <- suppressWarnings(cor(G[, i], G[, left]))^2
-    r2[is.na(r2)] <- 0
-    member <- left[r2 > CLUMP_R2 | left == i]
-    index[member] <- colnames(G)[i]
-    left <- setdiff(left, member)
-  }
-  index
+# Variant-gene pairs re-tested in another donor set with lm():
+# y ~ g + covariates, one model per pair (columns j of Y and G). C: covariate
+# matrix of the donor set (fixed + PEER). Missing genotypes are mean-imputed,
+# as in the scan; pairs with minor allele count < MIN_MAC in the set are NA.
+pairTest <- function(Y, G, C) {
+  map_dfr(seq_len(ncol(Y)), \(j) {
+    g <- G[, j]
+    g[is.na(g)] <- mean(g, na.rm = TRUE)
+    cf <- if (min(sum(g), 2 * length(g) - sum(g)) >= MIN_MAC) coef(summary(lm(Y[, j] ~ g + C)))
+    if (is.null(cf) || !'g' %in% rownames(cf)) return(tibble(beta = NA_real_, se = NA_real_, p = NA_real_))
+    tibble(beta = cf['g', 1], se = cf['g', 2], p = cf['g', 4])
+  })
 }

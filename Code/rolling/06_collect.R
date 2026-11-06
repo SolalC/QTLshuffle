@@ -2,8 +2,8 @@
 # 06  One table: each independent signal x window centre, with its window
 #     association and the N_REF 24 h reference associations
 #
-# Columns: centre (h), nW, nPEER, gene, variant, signal, window beta/se/p,
-# GTEx thresholds and q-value; reference summary: nRef (non-missing),
+# Columns: centre (h), gene, variant, signal, clump size, nW, nPEER, window
+# beta/se/p and BH q-value (04); reference summary: nRef (non-missing),
 # refMean, refSD, nSharedMean (window donors in a reference sample, mean),
 #   zRef      = (beta - refMean) / refSD
 #   pEmp      = (1 + #{|beta_ref - refMean| >= |beta - refMean|}) / (1 + nRef)

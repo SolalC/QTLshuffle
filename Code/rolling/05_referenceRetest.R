@@ -69,7 +69,7 @@ res <- map_dfr(refCov, \(rc) {
   if (!nrow(s)) return(NULL)
   rows  <- match(rc$donors, tis$donors)
   rowsW <- win$rows[[match(rc$centre, win$centre)]]
-  pairTest(tis$E[rows, s$gene, drop = FALSE], G[rows, s$variant, drop = FALSE], covariateBasis(rc$cov)) %>%
+  pairTest(tis$E[rows, s$gene, drop = FALSE], G[rows, s$variant, drop = FALSE], rc$cov) %>%
     mutate(centre = rc$centre, ref = ref, nShared = length(intersect(rows, rowsW)),
            gene = s$gene, variant = s$variant, .before = 1)
 })

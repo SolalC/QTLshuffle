@@ -8,6 +8,7 @@
 suppressPackageStartupMessages({
   library(tidyverse)
   library(data.table)
+  library(MatrixEQTL)
 })
 
 .envDir <- function(var, default) {
@@ -34,14 +35,18 @@ GENOTYPE_VCF   <- .envPath('QTLSHUFFLE_GENOTYPE_VCF',
 # here, not to RESULTS_DIR (controlled-access data). Later steps read it
 # directly with BEDMatrix.
 GENO_DIR       <- .envDir('QTLSHUFFLE_GENO_DIR', '/QRISdata/Q5776/QTLshuffle/')
+# plink2 binary (no Bunya module; same as the rhyh2 pipeline)
+PLINK2         <- .envPath('QTLSHUFFLE_PLINK2', '/home/uqschauq/software/plink2')
 # Donor inferred phase (CHIRAL): R object `phi`, radians
 DIP_FILE       <- .envPath('QTLSHUFFLE_DIP_FILE', paste0(CIRCADIAN_ROOT, 'Data/CHIRAL/DIP.RData'))
 
 # --- Scope -------------------------------------------------------------------------
 TISSUE         <- .envPath('QTLSHUFFLE_TISSUE', 'Muscle_Skeletal')
 # plink .bed/.bim/.fam made from GENOTYPE_VCF by 02a (tissue donors, PASS,
-# biallelic, chr1-22, MAF >= MAF_THRESHOLD among the tissue donors)
+# biallelic, chr1-22, MAF >= MAF_THRESHOLD among the tissue donors), and one
+# file per chromosome (02a) for plink2 --clump in 04
 GENOTYPE_PLINK <- .envPath('QTLSHUFFLE_GENOTYPE_PLINK', paste0(GENO_DIR, 'plink/GTEx_v9_WGS_', TISSUE))
+PLINK_CHR      <- \(chr) paste0(GENO_DIR, 'plink/', TISSUE, '_chr/', basename(GENOTYPE_PLINK), '_chr', chr)
 CHROMOSOMES    <- as.integer(str_split_1(.envPath('QTLSHUFFLE_CHROMOSOMES', paste(1:22, collapse = ',')), ','))
 
 # --- Windows -------------------------------------------------------------------------
@@ -49,17 +54,16 @@ WINDOW_WIDTH_H <- .envNum('QTLSHUFFLE_WINDOW_WIDTH_H', 3)  # window width (h of 
 CENTRES_H      <- 0:23      # window centres (h); windows wrap around midnight
 MIN_WINDOW_N   <- .envNum('QTLSHUFFLE_MIN_WINDOW_N', 60)  # centres with fewer donors are skipped
 
-# --- Association (GTEx v8/v10 cis-eQTL protocol, tensorQTL map_cis) ------------------
+# --- Association (MatrixEQTL, nominal threshold; no permutations) ---------------------
 CIS_WINDOW     <- 1e6       # bp either side of the TSS
-MAF_THRESHOLD  <- 0.01      # minimum MAF across the tissue's donors
+MAF_THRESHOLD  <- 0.01      # minimum MAF across the tissue's donors (02a)
 MIN_MAC        <- 10        # minimum minor allele count in each donor set tested
-NPERM_GENO     <- .envNum('QTLSHUFFLE_NPERM_GENO', 10000) # expression permutations per gene
-GENE_FDR       <- 0.05      # eGene: Storey q-value of the beta-approximated p <= GENE_FDR
-QVALUE_LAMBDA  <- 0.85      # q-value lambda used by GTEx
-PAIR_P_STORE   <- 0.01      # 03 stores variant-gene pairs with nominal p below this; 04 checks
-                            # that every eGene's nominal threshold is below it
-CLUMP_R2       <- 0.01      # independent signals: greedy clumping, r2 <= CLUMP_R2 with every
-                            # stronger index variant of the gene (as plink --clump)
+PAIR_FDR       <- 0.05      # significant pair: Benjamini-Hochberg q < PAIR_FDR over all cis
+                            # tests of the window (MatrixEQTL's FDR, pooled across chromosomes)
+PAIR_P_STORE   <- 0.01      # 03 stores pairs with p below this (all pairs with q < PAIR_FDR
+                            # have far smaller p; 04 checks)
+CLUMP_R2       <- 0.01      # independent signals: plink2 --clump, r2 threshold
+CLUMP_KB       <- 2000      # plink2 --clump window: the whole +/- 1 Mb cis window
 
 # PEER factors as GTEx, by the number of donors in the set
 peerK <- function(n) case_when(n < 150 ~ 15, n < 250 ~ 30, n < 350 ~ 45, TRUE ~ 60)
