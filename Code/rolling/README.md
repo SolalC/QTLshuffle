@@ -31,7 +31,7 @@ j3=$(sbatch --parsable --dependency=afterok:$j1:$j2 03_windowScan.sh)  # array 1
 j4=$(sbatch --parsable --dependency=afterok:$j3 04_windowCall.sh)      # FDR, eGenes, plink2 clumping
 sbatch --array 1 --dependency=afterok:$j4 05_referenceRetest.sh        # time one task first (24 PEER fits)
 j5=$(sbatch --parsable --dependency=afterok:$j4 05_referenceRetest.sh) # array 1-1000: one task per reference sample
-sbatch --dependency=afterok:$j5 --wrap "module load r/4.4.2-heavy; Rscript 06_collect.R" -A a_imb_cpdg -p general -t 2:00:00 --mem 60G
+sbatch --dependency=afterok:$j5 06_collect.sh
 ```
 
 Cost: 03 is one MatrixEQTL run per centre × chromosome on one core (time one task first). 01 took 2 h 57 min for the 24 window PEER fits in parallel, so a PEER fit takes about 3 h; 05 is 1000 tasks of 24 fits in parallel (24 cores, ~3 h each), about 72 000 core-hours in all, capped at 1536 cores at a time by the `normal` QOS.
