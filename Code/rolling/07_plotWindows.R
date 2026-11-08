@@ -1,15 +1,13 @@
 # =============================================================================
 # 07  Associations per window centre
 #
-# Panel A: on one count scale, per window centre, the number of independent
-#          signals (04, BH q < PAIR_FDR, clumped) and the number of those
-#          whose window beta lies outside the distribution of the N_REF random
-#          24 h reference samples (06: pEmp < P_EMP, two-sided).
-# Panel B: the second count as a percentage of the first. The dashed line is
-#          the percentage expected if no signal depended on time (100 x P_EMP).
-#          Selection on the window beta (winner's curse) inflates panel B
-#          above that line even without any time effect, so the line is a
-#          floor, not a null.
+# Panel a: on one count scale, per window centre, the number of independent
+#          signals (04, BH q < PAIR_FDR, clumped) and the number of those that
+#          are time dependent: window beta outside the distribution of the
+#          N_REF random 24 h reference samples (06: pEmp < P_EMP, two-sided).
+# Panel b: per window, stacked bars summing to 100%: time-dependent signals
+#          (pEmp < P_EMP) and time-independent signals (pEmp >= P_EMP).
+#          Signals without a reference test (pEmp missing) are left out.
 #
 # Run:     Rscript 07_plotWindows.R [pEmp threshold, default 0.05] [pEmp | pEmpLarger]
 # Outputs: Results/rolling/w<W>h/figures/associationsPerWindow.{pdf,png,csv}
@@ -33,39 +31,46 @@ win <- fread(paste0(WIDTH_DIR, 'windows.csv'))
 counts <- x %>%
   group_by(centre) %>%
   summarise(signals = n(), eGenes = n_distinct(gene),
-            timeSpecific = sum(p < P_EMP, na.rm = TRUE), untested = sum(is.na(p)),
+            timeDependent = sum(p < P_EMP, na.rm = TRUE), timeIndependent = sum(p >= P_EMP, na.rm = TRUE), untested = sum(is.na(p)),
             minRef = min(nRef), .groups = 'drop') %>%
   right_join(select(filter(win, used), centre, nW = n), by = 'centre') %>%   # skipped windows (n < MIN_WINDOW_N) are left out, not plotted as 0
-  mutate(across(c(signals, eGenes, timeSpecific, untested), \(v) replace_na(v, 0L)),
-         pctTime = 100 * timeSpecific / (signals - untested)) %>%
+  mutate(across(c(signals, eGenes, timeDependent, timeIndependent, untested), \(v) replace_na(v, 0L)),
+         pctTimeDependent = 100 * timeDependent / (timeDependent + timeIndependent)) %>%
   arrange(centre)
 fwrite(counts, paste0(FIG_DIR, 'associationsPerWindow.csv'))
 print(as_tibble(counts), n = Inf)
 
-LAB_ALL  <- sprintf('Independent signals (window q < %g)', PAIR_FDR)
-LAB_TIME <- sprintf('Outside 24 h reference (%s < %g)', P_COL, P_EMP)
-PANEL_A  <- 'A  Number of associations'
-PANEL_B  <- sprintf('B  %% of signals outside 24 h reference (%s < %g)', P_COL, P_EMP)
-long <- bind_rows(
-  transmute(counts, centre, nW, panel = PANEL_A, series = LAB_ALL,  value = signals),
-  transmute(counts, centre, nW, panel = PANEL_A, series = LAB_TIME, value = timeSpecific),
-  transmute(counts, centre, nW, panel = PANEL_B, series = LAB_TIME,
-            value = 100 * timeSpecific / (signals - untested))) %>%
-  mutate(panel = factor(panel, c(PANEL_A, PANEL_B)), series = factor(series, c(LAB_ALL, LAB_TIME)))
-nullLine <- tibble(panel = factor(PANEL_B, levels(long$panel)), y = 100 * P_EMP)
+LAB_ALL <- sprintf('All signals (window q < %g)', PAIR_FDR)
+LAB_DEP <- 'Time dependent'
+LAB_IND <- 'Time independent'
+PANEL_A <- 'a  Number of associations'
+PANEL_B <- sprintf('b  Proportion of associations (%s threshold %g)', P_COL, P_EMP)
+PANELS  <- c(PANEL_A, PANEL_B)
+SERIES  <- c(LAB_ALL, LAB_DEP, LAB_IND)
 
-p <- ggplot(long, aes(centre, value, colour = series)) +
-  geom_hline(data = nullLine, aes(yintercept = y), linetype = 'dashed', colour = 'grey40') +
-  geom_line(na.rm = TRUE) +
-  geom_point(aes(size = nW), na.rm = TRUE) +
+lines <- bind_rows(
+  transmute(counts, centre, nW, series = LAB_ALL, value = signals),
+  transmute(counts, centre, nW, series = LAB_DEP, value = timeDependent)) %>%
+  mutate(panel = factor(PANEL_A, PANELS), series = factor(series, SERIES))
+bars <- bind_rows(
+  transmute(counts, centre, series = LAB_DEP, value = timeDependent),
+  transmute(counts, centre, series = LAB_IND, value = timeIndependent)) %>%
+  group_by(centre) %>% mutate(value = 100 * value / sum(value)) %>% ungroup() %>%
+  filter(!is.na(value)) %>%
+  mutate(panel = factor(PANEL_B, PANELS), series = factor(series, rev(SERIES)))   # time dependent at the bottom
+
+p <- ggplot(mapping = aes(centre, value)) +
+  geom_col(data = bars, aes(fill = series), width = 0.85) +
+  geom_line(data = lines, aes(colour = series)) +
+  geom_point(data = lines, aes(colour = series, size = nW)) +
   facet_wrap(~ panel, ncol = 1, scales = 'free_y') +
-  scale_x_continuous(breaks = seq(0, 21, 3), limits = c(0, 23)) +
-  scale_y_continuous(limits = c(0, NA)) +
-  scale_colour_manual(values = c('#2b5d8a', '#b2443a'), name = NULL) +
+  scale_x_continuous(breaks = seq(0, 21, 3), limits = c(-0.5, 23.5), expand = expansion(0)) +
+  scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05))) +
+  scale_colour_manual(values = setNames(c('#2b5d8a', '#b2443a', '#b9c3cc'), SERIES), breaks = SERIES,
+                      aesthetics = c('colour', 'fill'), name = NULL) +
   scale_size_continuous(range = c(1, 3.5), name = 'Window donors') +
-  labs(x = 'Window centre (h, DIP time)', y = NULL,
-       title = sprintf('%s: %g h rolling windows', TISSUE, WINDOW_WIDTH_H),
-       caption = sprintf('Dashed line in B: %g%% expected without a time effect (before the winner\'s curse).', 100 * P_EMP)) +
+  labs(x = 'Window centre (h, DIP time)', y = 'Number (a) / % (b)',
+       title = sprintf('%s: %g h rolling windows', TISSUE, WINDOW_WIDTH_H)) +
   theme_bw(base_size = 11) +
   theme(strip.background = element_blank(), strip.text = element_text(hjust = 0, face = 'bold'),
         panel.grid.minor = element_blank(), legend.position = 'bottom', legend.box = 'vertical')
