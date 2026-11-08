@@ -2,7 +2,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=32G
+#SBATCH --mem=60G
 #SBATCH --job-name=roll07_plot
 #SBATCH --time=1:00:00
 #SBATCH --partition=general
@@ -11,7 +11,7 @@
 #SBATCH -o ../logs/%x.out
 #SBATCH -e ../logs/%x.err
 
-# Run after 06: sbatch 07_plotWindows.sh [pEmp threshold] [pEmp | pEmpLarger]
+# Run after 06: sbatch 07_plotWindows.sh [p=0.05] [test=pEmp|pEmpLarger] [example=centre,gene,variant]
 cd "${SLURM_SUBMIT_DIR}"
 module load r/4.4.2-heavy
 Rscript 07_plotWindows.R "$@"

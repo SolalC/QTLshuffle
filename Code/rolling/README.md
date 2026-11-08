@@ -32,8 +32,7 @@ j4=$(sbatch --parsable --dependency=afterok:$j3 04_windowCall.sh)      # FDR, eG
 sbatch --array 1 --dependency=afterok:$j4 05_referenceRetest.sh        # time one task first (24 PEER fits)
 j5=$(sbatch --parsable --dependency=afterok:$j4 05_referenceRetest.sh) # array 1-1000: one task per reference sample
 j6=$(sbatch --parsable --dependency=afterok:$j5 06_collect.sh)
-sbatch --dependency=afterok:$j6 07_plotWindows.sh   # figures/associationsPerWindow.{pdf,png,csv}; args: [threshold] [pEmp|pEmpLarger]
-sbatch --dependency=afterok:$j6 08_plotExamples.sh  # figures/exampleSignals.*; or args: centre gene variant
+sbatch --dependency=afterok:$j6 07_plotWindows.sh   # figures; args: [p=0.05] [test=pEmp|pEmpLarger] [example=centre,gene,variant]
 ```
 
 Cost: 03 is one MatrixEQTL run per centre × chromosome on one core (time one task first). 01 took 2 h 57 min for the 24 window PEER fits in parallel, so a PEER fit takes about 3 h; 05 is 1000 tasks of 24 fits in parallel (24 cores, ~3 h each), about 72 000 core-hours in all, capped at 1536 cores at a time by the `normal` QOS.
@@ -61,7 +60,7 @@ Everything that is expensive is written to disk and re-used.
 | `w3h/results/rollingWindow.csv.gz` | **main table**: one row per signal × centre, with the window β, SE and p; nRef, refMean, refSD; zRef = (β − refMean)/refSD; two-sided pEmp; one-sided pEmpLarger (reference β at least as large in the window's direction); then `beta_ref_1` to `beta_ref_1000` |
 | `w3h/results/referenceLong.csv.gz` | β, SE and p of every reference association |
 | `w3h/figures/associationsPerWindow.{pdf,png,csv}` | 07: per centre, (a) number of independent signals and of time-dependent signals (pEmp < 0.05) on one scale; (b) stacked bars to 100%: time dependent vs time independent (pEmp ≥ 0.05) |
-| `w3h/figures/exampleSignals.{pdf,png,csv}` | 08: histogram of the 1000 reference betas with the window beta, for the most time-dependent (smallest pEmp) and most time-independent (largest pEmp) signal |
+| `w3h/figures/exampleSignals.{pdf,png,csv}` | 07: histogram of the 1000 reference betas with the window beta, for the most time-dependent (smallest pEmp) and most time-independent (largest pEmp) signal |
 
 ## Requirements
 
