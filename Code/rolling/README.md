@@ -59,8 +59,8 @@ Everything that is expensive is written to disk and re-used.
 | `w3h/reference/ref<r>.csv.gz` | re-test of every signal of every centre in reference sample r (β, SE, p, nShared) |
 | `w3h/results/rollingWindow.csv.gz` | **main table**: one row per signal × centre, with the window β, SE and p; nRef, refMean, refSD; zRef = (β − refMean)/refSD; two-sided pEmp; one-sided pEmpLarger (reference β at least as large in the window's direction); then `beta_ref_1` to `beta_ref_1000` |
 | `w3h/results/referenceLong.csv.gz` | β, SE and p of every reference association |
-| `w3h/figures/rollingWindow.{pdf,png}` | 07: (a) time-independent and (c) time-dependent example, histogram of the 1000 reference betas with the window beta; (b) number of independent and of time-dependent signals per centre; (d) stacked bars to 100%: time dependent (pEmp < 0.05) vs time independent |
-| `w3h/figures/associationsPerWindow.csv`, `exampleSignals.csv` | 07: the counts behind b and d, and the two example rows |
+| `w3h/figures/rollingWindow_{nominal,BH}.{pdf,png}` | 07: (a) time-independent and (c) time-dependent example, histogram of the 1000 reference betas with the window beta; (b) number of independent and of time-dependent signals per centre; (d) stacked bars to 100%: time dependent vs time independent. Time dependent: pEmp < 0.05 (nominal) or BH-adjusted pEmp < 0.05, BH within each window (BH) |
+| `w3h/figures/associationsPerWindow_{nominal,BH}.csv`, `exampleSignals_{nominal,BH}.csv` | 07: the counts behind b and d, and the two example rows (with gene symbol and rsID) |
 
 ## Requirements
 
