@@ -34,4 +34,19 @@ if (weighted.mean(tv$pEmpLargerBelow05, tv$signals) <= 2 * mean_$pEmpLargerBelow
   fail('time-varying eQTL not more often outside the 24 h distribution than mean eQTL')
 nullRate <- sum(out$gene %in% out$gene[arch(out$gene) %in% c('null', 'rhythmic only')]) / nrow(out)
 message('Share of signals in null or rhythmic-only genes: ', round(nullRate, 3))
+
+# Selection-bias control (07, 08): every centre calibrated; calibration must not
+# call mean (time-invariant) eQTL time dependent more often than pEmp < 0.05 does.
+cal <- list.files(file.path(w, 'null', 'calibration'), pattern = '_window\\.csv\\.gz$', full.names = TRUE)
+if (length(cal) != 24) fail('expected 24 calibrated centres, found ', length(cal))
+cal <- rbindlist(map(cal, fread))
+nul <- rbindlist(map(list.files(file.path(w, 'null', 'calibration'), pattern = '_null\\.csv\\.gz$', full.names = TRUE), fread))
+if (max(abs(nul$betaSelf - nul$beta), na.rm = TRUE) > 1e-6) fail('pairBeta does not reproduce the pseudo-window scan beta')
+calSumm <- cal %>% mutate(arch = arch(gene)) %>% group_by(arch) %>%
+  summarise(signals = n(), pEmpKBelow05 = mean(pEmpK < 0.05, na.rm = TRUE),
+            pCalBelow05 = mean(pCal < 0.05, na.rm = TRUE), timeDependent = mean(timeDependent, na.rm = TRUE))
+print(calSumm)
+message('Pseudo-window signals: ', nrow(nul), '; % pEmp < 0.05 among them: ', round(100 * mean(nul$pEmp < 0.05, na.rm = TRUE), 1))
+m <- filter(calSumm, arch == 'mean')
+if (nrow(m) && m$pCalBelow05 > m$pEmpKBelow05 + 0.02) fail('calibration raises the time-dependent rate of mean eQTL')
 message('PASS')

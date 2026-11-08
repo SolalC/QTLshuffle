@@ -8,7 +8,10 @@
 #   Windows        circularHourDiff, windowRows, referenceSample
 #   Covariates     runPEER, windowCovariates
 #   Association    meanImpute, minorAlleleCount, pairTest (lm)
-# The window scan uses MatrixEQTL (03) and clumping uses plink2 --clump (04).
+#   Scan and call  scanChromosome (MatrixEQTL), callSignals (BH + plink2 --clump),
+#                  pairBeta (MatrixEQTL beta of given pairs)
+# The same scan and call functions are used for windows (03, 04) and for
+# reference samples treated as windows (07), so that both are selected alike.
 # =============================================================================
 
 # --- Data loading --------------------------------------------------------------
@@ -168,6 +171,108 @@ pairTest <- function(Y, G, C) {
     if (is.null(cf) || !'g' %in% rownames(cf)) return(tibble(beta = NA_real_, se = NA_real_, p = NA_real_))
     tibble(beta = cf['g', 1], se = cf['g', 2], p = cf['g', 4])
   })
+}
+
+
+# --- Scan and call (windows 03/04, pseudo-windows 07, re-tests 08) ------------------
+
+slicedData <- function(M) { s <- SlicedData$new(); s$CreateFromMatrix(M); s$ResliceCombined(2000); s }
+
+# cis scan of one donor set x one chromosome with MatrixEQTL (modelLINEAR):
+#   y ~ g + covariates, every variant within CIS_WINDOW of the TSS (`end` of the
+#   expression .bed) with minor allele count >= MIN_MAC in the donor set
+#   (missing genotypes mean-imputed). rows: donor indices into tis$donors;
+#   cov: donors x covariates. Returns pairs with p < pThreshold (gene,
+#   variant, beta, se, t, pNominal), genes (gene, nVar, minP), the number of
+#   cis tests and of variants tested.
+scanChromosome <- function(tis, geno, rows, cov, chrom, pThreshold = PAIR_P_STORE) {
+  cov   <- cov[, apply(cov, 2, var) > 0, drop = FALSE]     # e.g. one platform in the set
+  genes <- tis$pos[sub('^chr', '', chr) == as.character(chrom)]
+  cols  <- which(geno$bim$chr == as.character(chrom))
+  G <- meanImpute(readGenotypes(geno, rows, cols))
+  ok <- minorAlleleCount(G) >= MIN_MAC
+  G <- G[, ok, drop = FALSE]; pos <- geno$bim$pos[cols][ok]
+  me <- Matrix_eQTL_main(
+    snps = slicedData(t(G)), gene = slicedData(t(tis$E[rows, genes$gene_id, drop = FALSE])),
+    cvrt = slicedData(t(cov)), useModel = modelLINEAR, errorCovariance = numeric(),
+    output_file_name = tempfile(), pvOutputThreshold = 0,             # no trans tests
+    output_file_name.cis = tempfile(), pvOutputThreshold.cis = pThreshold,
+    snpspos = data.frame(snp = colnames(G), chr = chrom, pos = pos),
+    genepos = data.frame(gene = genes$gene_id, chr = chrom, left = genes$end, right = genes$end),
+    cisDist = CIS_WINDOW, pvalue.hist = FALSE, min.pv.by.genesnp = TRUE,
+    noFDRsaveMemory = FALSE, verbose = FALSE)
+  # cis variants per gene (as MatrixEQTL defines cis: |pos - TSS| <= cisDist)
+  nVar <- findInterval(genes$end + CIS_WINDOW, pos) - findInterval(genes$end - CIS_WINDOW - 1, pos)
+  list(pairs = as_tibble(me$cis$eqtls) %>%
+         transmute(gene = as.character(gene), variant = as.character(snps),
+                   beta, se = beta / statistic, t = statistic, pNominal = pvalue),
+       genes = tibble(gene = genes$gene_id, nVar = nVar, minP = me$cis$min.pv.gene[genes$gene_id]) %>%
+         filter(nVar > 0),
+       nTests = me$cis$ntests, nVariants = ncol(G), nCov = ncol(cov))
+}
+
+# plink2 --clump of one set's significant variants of one gene; returns the
+# index variants and clump sizes. LD from all the tissue's donors (PLINK_CHR).
+clumpGene <- function(x) {
+  dir <- tempfile('clump_'); dir.create(dir); on.exit(unlink(dir, recursive = TRUE))
+  fwrite(tibble(ID = x$variant, P = pmax(x$pNominal, 1e-300)), file.path(dir, 'assoc.tsv'), sep = '\t')
+  status <- system2(PLINK2, c('--bfile', PLINK_CHR(x$chr[1]), '--clump', file.path(dir, 'assoc.tsv'),
+                              '--clump-p1', 1, '--clump-p2', 1, '--clump-r2', CLUMP_R2,
+                              '--clump-kb', CLUMP_KB, '--threads', 1, '--memory', 4000,
+                              '--out', file.path(dir, 'out')), stdout = FALSE, stderr = FALSE)
+  out <- file.path(dir, 'out.clumps')
+  if (status != 0 || !file.exists(out)) stop('plink2 --clump failed for ', x$set[1], ', ', x$gene[1])
+  fread(out) %>% transmute(variant = ID, clumpSize = TOTAL + 1L)
+}
+
+# Significant pairs and independent signals of one or more donor sets:
+#   BH q-value of every stored pair over all cis tests of its set (nTests:
+#   set, nTestsSet), significant pair q < PAIR_FDR, then each significant
+#   gene's variants clumped with plink2 (clumpGene). pairs: set, gene, chr,
+#   variant, beta, se, t, pNominal. Returns list(sig, independent).
+callSignals <- function(pairs, nTests, nCore) {
+  pairs <- pairs %>% left_join(nTests, by = 'set') %>%
+    group_by(set) %>% mutate(qval = p.adjust(pNominal, 'BH', n = nTestsSet[1])) %>% ungroup()
+  sig <- filter(pairs, qval < PAIR_FDR) %>% arrange(set, gene, pNominal)
+  if (!nrow(sig)) return(list(sig = sig, independent = mutate(sig, clumpSize = integer(), signal = integer(), nSignal = integer())))
+  maxP <- max(sig$pNominal)
+  if (maxP > PAIR_P_STORE / 10)
+    warning('Significant pairs reach p = ', signif(maxP, 2), ', close to PAIR_P_STORE (', PAIR_P_STORE, ')')
+  groups <- split(sig, interaction(sig$set, sig$gene, drop = TRUE))
+  index <- parallel::mclapply(groups, \(x) mutate(clumpGene(x), set = x$set[1], gene = x$gene[1]),
+                              mc.cores = nCore, mc.preschedule = FALSE)
+  failed <- map_lgl(index, \(x) inherits(x, 'try-error'))
+  if (any(failed)) stop(sum(failed), ' clumping runs failed, e.g. ', as.character(index[[which(failed)[1]]]))
+  independent <- bind_rows(index) %>%
+    inner_join(sig, by = c('set', 'gene', 'variant')) %>%
+    arrange(set, gene, pNominal) %>%
+    group_by(set, gene) %>% mutate(signal = row_number(), nSignal = n()) %>% ungroup()
+  list(sig = sig, independent = independent)
+}
+
+# MatrixEQTL beta and SE of given variant-gene pairs (gene, variant; one
+# chromosome) in one donor set, same model and filters as scanChromosome.
+# Pairs whose variant has minor allele count < MIN_MAC in the set are NA.
+pairBeta <- function(tis, geno, rows, cov, pairs, chrom) {
+  cov   <- cov[, apply(cov, 2, var) > 0, drop = FALSE]
+  genes <- tis$pos[match(unique(pairs$gene), gene_id)]
+  cols  <- match(unique(pairs$variant), geno$bim$id)
+  G <- meanImpute(readGenotypes(geno, rows, cols))
+  ok <- minorAlleleCount(G) >= MIN_MAC
+  out <- pairs %>% select(gene, variant) %>% mutate(beta = NA_real_, se = NA_real_)
+  if (!any(ok)) return(out)
+  G <- G[, ok, drop = FALSE]; pos <- geno$bim$pos[cols][ok]
+  me <- Matrix_eQTL_main(
+    snps = slicedData(t(G)), gene = slicedData(t(tis$E[rows, genes$gene_id, drop = FALSE])),
+    cvrt = slicedData(t(cov)), useModel = modelLINEAR, errorCovariance = numeric(),
+    output_file_name = tempfile(), pvOutputThreshold = 0,
+    output_file_name.cis = tempfile(), pvOutputThreshold.cis = 1,   # every cis pair
+    snpspos = data.frame(snp = colnames(G), chr = chrom, pos = pos),
+    genepos = data.frame(gene = genes$gene_id, chr = chrom, left = genes$end, right = genes$end),
+    cisDist = CIS_WINDOW, pvalue.hist = FALSE, noFDRsaveMemory = FALSE, verbose = FALSE)
+  res <- as_tibble(me$cis$eqtls) %>%
+    transmute(gene = as.character(gene), variant = as.character(snps), b = beta, s = beta / statistic)
+  out %>% left_join(res, by = c('gene', 'variant')) %>% transmute(gene, variant, beta = b, se = s)
 }
 
 

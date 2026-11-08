@@ -78,6 +78,16 @@ PEER_ITER      <- 1000      # PEER maximum iterations
 N_REF          <- .envNum('QTLSHUFFLE_N_REF', 1000)     # random 24 h samples per window centre (one SLURM task each)
 SEED           <- 20261105
 
+# --- Selection-bias control (07, 08) ------------------------------------------------
+# References 1..N_NULL of each centre are treated as windows (scan, BH, clump:
+# pseudo-windows); their signals are tested against the other N_NULL - 1, and
+# the window signals against all N_NULL, with the same MatrixEQTL model.
+N_NULL         <- .envNum('QTLSHUFFLE_N_NULL', 100)
+# Bins of window |z| (|beta / se|) within which window signals are calibrated
+# against pseudo-window signals (the bias depends on |z|)
+Z_BINS         <- c(0, 5, 6, 7, 8, 10, 15, Inf)
+TIME_FDR       <- 0.05      # time dependent: BH q (calibrated p, within window) < TIME_FDR
+
 # PEER backend: 'peer' (the R package) is the analysis; 'pca_test_only' exists
 # solely for the toy test where PEER is not installed.
 PEER_BACKEND   <- .envPath('QTLSHUFFLE_PEER_BACKEND', 'peer')
@@ -95,7 +105,9 @@ CALL_DIR  <- paste0(WIDTH_DIR, 'calls/')                             # 04
 REF_DIR   <- paste0(WIDTH_DIR, 'reference/')                         # 05: re-test results
 REF_COV_DIR <- paste0(WIDTH_DIR, 'referenceCovariates/')            # 05: donors, PEER, covariates
 OUT_DIR   <- paste0(WIDTH_DIR, 'results/')                           # 06
-for (.d in c(DATA_DIR, SCAN_DIR, CALL_DIR, REF_DIR, REF_COV_DIR, OUT_DIR)) dir.create(.d, recursive = TRUE, showWarnings = FALSE)
+NULL_SCAN_DIR <- paste0(WIDTH_DIR, 'null/scan/')                     # 07: pseudo-window signals
+NULL_CAL_DIR  <- paste0(WIDTH_DIR, 'null/calibration/')              # 08: re-tests, calibration
+for (.d in c(DATA_DIR, SCAN_DIR, CALL_DIR, REF_DIR, REF_COV_DIR, OUT_DIR, NULL_SCAN_DIR, NULL_CAL_DIR)) dir.create(.d, recursive = TRUE, showWarnings = FALSE)
 
 .a <- commandArgs(FALSE); .f <- sub('^--file=', '', .a[grep('^--file=', .a)])
 CODE_DIR <- Sys.getenv('QTLSHUFFLE_CODE_DIR', if (length(.f)) dirname(normalizePath(.f)) else normalizePath('.'))

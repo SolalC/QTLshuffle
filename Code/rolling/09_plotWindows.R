@@ -1,11 +1,16 @@
 # =============================================================================
-# 07  Figures: example signals (left) and associations per window centre (right)
+# 09  Figures: example signals (left) and associations per window centre (right)
 #
-# Two figures, one per correction of the reference test (06, pEmp, two-sided):
-#   nominal: time dependent if pEmp < P_EMP
-#   BH     : time dependent if BH-adjusted pEmp < P_EMP, BH within each window
-#            centre over its tested signals (p.adjust). pEmp >= 1/(1 + N_REF),
-#            so BH can only call signals when enough of them are extreme.
+# One figure per definition of "time dependent":
+#   nominal   : pEmp < P_EMP (06, two-sided)
+#   BH        : BH-adjusted pEmp < P_EMP, BH within each window centre over its
+#               tested signals (p.adjust). pEmp >= 1/(1 + N_REF).
+#   calibrated: qCal < P_EMP (08): |zRef| calibrated against reference samples
+#               selected and tested like windows, within |z| bins, then BH
+#               within each window. Only if 08 has been run. Corrects for the
+#               selection on the window beta (winner's curse); nominal and BH do not.
+# Plus, if 08 has been run, nullCalibration: per centre, the window's % of
+# signals with pEmp < 0.05 against the same % in its pseudo-windows.
 # Panels:
 #   a  time-independent example: histogram of the N_REF reference betas
 #      (same gene, variant and n, donors drawn over 24 h), red line at the
@@ -18,14 +23,14 @@
 #      independent. Signals without a reference test (pEmp missing) are left out.
 # Both examples are significant in their window (04). They are labelled by
 # gene symbol (GENE_GTF) and rsID (VARIANT_LOOKUP); window, n, z and p are in
-# exampleSignals_<correction>.csv. Selection on the window beta (winner's
-# curse) makes pEmp anti-conservative; neither correction accounts for it.
+# exampleSignals_<correction>.csv.
 #
-# Run:     Rscript 07_plotWindows.R [p=0.05] [test=pEmp|pEmpLarger]
+# Run:     Rscript 09_plotWindows.R [p=0.05] [test=pEmp|pEmpLarger]
 #            [independent=centre,gene,variant] [dependent=centre,gene,variant]
 #          (independent= / dependent= replace the automatic examples in both figures)
-# Outputs: Results/rolling/w<W>h/figures/rollingWindow_{nominal,BH}.{pdf,png},
-#          associationsPerWindow_{nominal,BH}.csv, exampleSignals_{nominal,BH}.csv
+# Outputs: Results/rolling/w<W>h/figures/rollingWindow_{nominal,BH,calibrated}.{pdf,png},
+#          associationsPerWindow_{...}.csv, exampleSignals_{...}.csv,
+#          nullCalibration.{pdf,png,csv}
 #          (suffix _<test><p> when the test or threshold is not the default)
 # =============================================================================
 
@@ -51,6 +56,16 @@ dir.create(FIG_DIR, recursive = TRUE, showWarnings = FALSE)
 full <- fread(paste0(OUT_DIR, 'rollingWindow.csv.gz'))
 full[, pNom := get(P_COL)]
 full[!is.na(pNom), pBH := p.adjust(pNom, 'BH'), by = centre]   # BH within each window
+# Calibrated against the pseudo-window null (08), if it has been run
+calFiles <- list.files(NULL_CAL_DIR, pattern = '_window\\.csv\\.gz$', full.names = TRUE)
+CORRECTIONS <- c(nominal = 'pNom', BH = 'pBH')
+if (length(calFiles)) {
+  cal <- rbindlist(map(calFiles, fread))[, .(centre, gene = as.character(gene), variant, pCal, qCal)]
+  full[, gene := as.character(gene)]
+  full <- cal[full, on = c('centre', 'gene', 'variant')]
+  CORRECTIONS <- c(CORRECTIONS, calibrated = 'qCal')
+  message('Calibrated (08) for ', uniqueN(cal$centre), ' centres')
+} else message('No 08 output in ', NULL_CAL_DIR, ': nominal and BH figures only')
 win  <- fread(paste0(WIDTH_DIR, 'windows.csv'))
 
 LAB_ALL <- sprintf('All signals (window q < %g)', PAIR_FDR)
@@ -70,7 +85,7 @@ pickRow <- function(key, auto) {
   if (nrow(r) != 1) stop('No tested signal ', key)
   r
 }
-picks <- map(c(nominal = 'pNom', BH = 'pBH'), \(pc) list(
+picks <- map(CORRECTIONS, \(pc) list(
   ind = pickRow(EX_IND, tested[order(-get(pc), abs(zRef))][1]),
   dep = pickRow(EX_DEP, tested[order(get(pc), -abs(zRef))][1])))
 keys <- unique(rbindlist(flatten(picks))[, .(gene, variant)])
@@ -78,7 +93,7 @@ keys[, `:=`(symbol = geneSymbol(gene), rsid = variantRsid(variant))]
 
 # --- One figure per correction --------------------------------------------------------
 makeFigure <- function(correction) {
-  pc  <- c(nominal = 'pNom', BH = 'pBH')[[correction]]
+  pc  <- CORRECTIONS[[correction]]
   tag <- paste0('_', correction, SUFFIX)
   d   <- full[, .(centre, gene, nRef, p = get(pc))]
 
@@ -124,7 +139,7 @@ makeFigure <- function(correction) {
   ex <- keys[ex, on = c('gene', 'variant')]
   info <- ex %>%
     select(example, centre, gene, symbol, variant, rsid, nW, beta, se, pNominal, qval, nRef,
-           refMean, refSD, zRef, pEmp, pEmpLarger, pBH, p) %>%
+           refMean, refSD, zRef, pEmp, pEmpLarger, pBH, any_of(c('pCal', 'qCal')), p) %>%
     mutate(label = sprintf('%s: %s, %s', example, symbol, rsid))
   fwrite(select(info, -label, -p), paste0(FIG_DIR, 'exampleSignals', tag, '.csv'))
   if (with(info, any((example == LAB_DEP) != (p < P_EMP))))
@@ -152,4 +167,22 @@ makeFigure <- function(correction) {
   message('Wrote ', stem, '.{pdf,png}')
 }
 
-walk(c('nominal', 'BH'), makeFigure)
+walk(names(CORRECTIONS), makeFigure)
+
+# --- Window level: % pEmp < 0.05 in each window against its pseudo-windows (08) ----------
+if (length(calFiles)) {
+  byRef <- rbindlist(map(list.files(NULL_CAL_DIR, pattern = '_nullByRef\\.csv$', full.names = TRUE), \(f)
+    fread(f)[, centre := as.numeric(sub('^c(\\d+)_.*', '\\1', basename(f)))]))
+  summ <- rbindlist(map(list.files(NULL_CAL_DIR, pattern = '_summary\\.csv$', full.names = TRUE), fread))
+  fwrite(summ, paste0(FIG_DIR, 'nullCalibration', SUFFIX, '.csv'))
+  pNull <- ggplot(byRef, aes(centre, pctPEmp05)) +
+    geom_boxplot(aes(group = centre), outlier.size = 0.5, colour = 'grey50', fill = COLOURS[LAB_IND]) +
+    geom_point(data = summ, aes(y = pctWindowPEmp05), colour = COLOURS[LAB_DEP], size = 2.5) +
+    X_TIME + scale_y_continuous(limits = c(0, 100)) +
+    labs(x = 'Window centre (h, DIP time)', y = 'Signals with pEmp < 0.05 (%)',
+         caption = 'Red: window. Grey: reference samples selected and tested like a window (no time structure).') +
+    THEME
+  ggsave(paste0(FIG_DIR, 'nullCalibration', SUFFIX, '.pdf'), pNull, width = 8, height = 4)
+  ggsave(paste0(FIG_DIR, 'nullCalibration', SUFFIX, '.png'), pNull, width = 8, height = 4, dpi = 200)
+  message('Wrote ', FIG_DIR, 'nullCalibration', SUFFIX, '.{pdf,png,csv}')
+}

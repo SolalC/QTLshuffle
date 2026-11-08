@@ -34,39 +34,15 @@ if (!win$windows$used[centreIdx]) {
 }
 tis  <- readRDS(TISSUE_FILE)
 rows <- win$windows$rows[[centreIdx]]
-cov  <- win$cov[[centreIdx]]
-cov  <- cov[, apply(cov, 2, var) > 0, drop = FALSE]   # e.g. one platform in the window
+geno <- openGenotypes(tis$donors)
 
-genes <- tis$pos[sub('^chr', '', chr) == as.character(chrom)]
-geno  <- openGenotypes(tis$donors)
-cols  <- which(geno$bim$chr == as.character(chrom))
-G <- meanImpute(readGenotypes(geno, rows, cols))       # window donors x chromosome variants
-rownames(G) <- tis$donors[rows]
-ok <- minorAlleleCount(G) >= MIN_MAC
-G <- G[, ok, drop = FALSE]; pos <- geno$bim$pos[cols][ok]
-message('Centre ', centre, ' h, chr', chrom, ': ', length(rows), ' donors, ', ncol(cov),
-        ' covariates, ', nrow(genes), ' genes, ', ncol(G), ' variants with MAC >= ', MIN_MAC)
-
-sliced <- \(M) { s <- SlicedData$new(); s$CreateFromMatrix(M); s$ResliceCombined(2000); s }
 t0 <- Sys.time()
-me <- Matrix_eQTL_main(
-  snps = sliced(t(G)), gene = sliced(t(tis$E[rows, genes$gene_id, drop = FALSE])),
-  cvrt = sliced(t(cov)), useModel = modelLINEAR, errorCovariance = numeric(),
-  output_file_name = tempfile(), pvOutputThreshold = 0,             # no trans tests
-  output_file_name.cis = tempfile(), pvOutputThreshold.cis = PAIR_P_STORE,
-  snpspos = data.frame(snp = colnames(G), chr = chrom, pos = pos),
-  genepos = data.frame(gene = genes$gene_id, chr = chrom, left = genes$end, right = genes$end),
-  cisDist = CIS_WINDOW, pvalue.hist = FALSE, min.pv.by.genesnp = TRUE,
-  noFDRsaveMemory = FALSE, verbose = FALSE)
-message('MatrixEQTL: ', me$cis$ntests, ' cis tests in ',
+sc <- scanChromosome(tis, geno, rows, win$cov[[centreIdx]], chrom)   # 00_functions.R
+message('Centre ', centre, ' h, chr', chrom, ': ', length(rows), ' donors, ', sc$nCov, ' covariates, ',
+        sc$nVariants, ' variants with MAC >= ', MIN_MAC)
+message('MatrixEQTL: ', sc$nTests, ' cis tests in ',
         round(as.numeric(difftime(Sys.time(), t0, units = 'mins')), 1), ' min')
 
-# cis variants per gene (as MatrixEQTL defines cis: |pos - TSS| <= cisDist)
-nVar <- findInterval(genes$end + CIS_WINDOW, pos) - findInterval(genes$end - CIS_WINDOW - 1, pos)
-fwrite(tibble(centre = centre, chr = chrom, gene = genes$gene_id, nVar = nVar,
-              minP = me$cis$min.pv.gene[genes$gene_id], nTests = me$cis$ntests) %>%
-         filter(nVar > 0), outFile('genes'))
-fwrite(as_tibble(me$cis$eqtls) %>%
-         transmute(centre = centre, gene = as.character(gene), variant = as.character(snps),
-                   beta, se = beta / statistic, t = statistic, pNominal = pvalue),
-       outFile('pairs'))
+fwrite(mutate(sc$genes, centre = centre, chr = chrom, .before = 1) %>% mutate(nTests = sc$nTests),
+       outFile('genes'))
+fwrite(mutate(sc$pairs, centre = centre, .before = 1), outFile('pairs'))

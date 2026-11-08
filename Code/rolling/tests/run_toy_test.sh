@@ -23,6 +23,7 @@ export QTLSHUFFLE_DIP_FILE="$toy/DIP.RData"
 export QTLSHUFFLE_TISSUE=ToyA
 export QTLSHUFFLE_CHROMOSOMES=1,2
 export QTLSHUFFLE_N_REF=40
+export QTLSHUFFLE_N_NULL=10
 export QTLSHUFFLE_PEER_BACKEND=pca_test_only
 
 Rscript 01_prepareTissue.R $nCore
@@ -31,4 +32,6 @@ for t in $(seq 1 48); do Rscript 03_windowScan.R $t 2>&1 | grep -E 'MatrixEQTL|s
 Rscript 04_windowCall.R $nCore
 for r in $(seq 1 40); do Rscript 05_referenceRetest.R $r $nCore 2>&1 | grep -iE 'error' || true; done
 Rscript 06_collect.R
+for k in $(seq 1 10); do Rscript 07_nullScan.R $k $nCore 2>&1 | grep -iE 'error|centres scanned' || true; done
+for c in $(seq 1 24); do Rscript 08_nullCalibrate.R $c $nCore 2>&1 | grep -iE 'error|warn|Check:' || true; done
 Rscript tests/check_toy_results.R "$QTLSHUFFLE_RESULTS"

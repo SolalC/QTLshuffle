@@ -25,7 +25,6 @@
 
 .a <- commandArgs(FALSE); .f <- sub('^--file=', '', .a[grep('^--file=', .a)])
 source(file.path(if (length(.f)) dirname(normalizePath(.f)) else '.', '00_config.R'))
-library(parallel)
 nCore <- as.integer(commandArgs(trailingOnly = TRUE)[1])
 
 win <- readRDS(WINDOW_FILE)$windows
@@ -42,15 +41,11 @@ readAll <- \(what) rbindlist(map(paste0(expected$stem, what, '.csv.gz'), \(f) {
 genes <- as_tibble(readAll('genes'))
 nTests <- genes %>% distinct(centre, chr, nTests) %>% count(centre, wt = nTests, name = 'nTestsWindow')
 pairs <- as_tibble(readAll('pairs')) %>%
-  left_join(nTests, by = 'centre') %>%
-  group_by(centre) %>% mutate(qval = p.adjust(pNominal, 'BH', n = nTestsWindow[1])) %>% ungroup()
-sig <- filter(pairs, qval < PAIR_FDR) %>%
-  left_join(distinct(genes, centre, gene, chr), by = c('centre', 'gene')) %>%
-  arrange(centre, gene, pNominal)
-maxP <- sig %>% group_by(centre) %>% summarise(maxP = max(pNominal))
-if (any(maxP$maxP > PAIR_P_STORE / 10))
-  warning('Significant pairs reach p = ', signif(max(maxP$maxP), 2), ', close to PAIR_P_STORE (',
-          PAIR_P_STORE, '); raise PAIR_P_STORE in 00_config.R and rerun 03')
+  left_join(distinct(genes, centre, gene, chr), by = c('centre', 'gene'))
+t0 <- Sys.time()
+called <- callSignals(rename(pairs, set = centre), rename(nTests, set = centre, nTestsSet = nTestsWindow), nCore)   # 00_functions.R
+message('BH and plink2 clumping in ', round(as.numeric(difftime(Sys.time(), t0, units = 'mins')), 1), ' min')
+sig <- rename(called$sig, centre = set, nTestsWindow = nTestsSet)
 fwrite(sig, paste0(CALL_DIR, 'significantPairs.csv.gz'))
 
 genes <- genes %>%
@@ -62,30 +57,7 @@ fwrite(genes, paste0(CALL_DIR, 'genes.csv.gz'))
 message(nrow(sig), ' significant pairs; eGenes per centre:')
 print(count(genes, centre, wt = eGene, name = 'eGenes'), n = Inf)
 
-# plink2 --clump for one centre x eGene; returns index variants and clump sizes.
-clump <- function(x) {
-  dir <- tempfile('clump_'); dir.create(dir); on.exit(unlink(dir, recursive = TRUE))
-  fwrite(tibble(ID = x$variant, P = pmax(x$pNominal, 1e-300)), file.path(dir, 'assoc.tsv'), sep = '\t')
-  status <- system2(PLINK2, c('--bfile', PLINK_CHR(x$chr[1]), '--clump', file.path(dir, 'assoc.tsv'),
-                              '--clump-p1', 1, '--clump-p2', 1, '--clump-r2', CLUMP_R2,
-                              '--clump-kb', CLUMP_KB, '--threads', 1, '--memory', 4000,
-                              '--out', file.path(dir, 'out')), stdout = FALSE, stderr = FALSE)
-  out <- file.path(dir, 'out.clumps')
-  if (status != 0 || !file.exists(out)) stop('plink2 --clump failed for ', x$centre[1], ' h, ', x$gene[1])
-  fread(out) %>% transmute(variant = ID, clumpSize = TOTAL + 1L)
-}
-groups <- split(sig, interaction(sig$centre, sig$gene, drop = TRUE))
-t0 <- Sys.time()
-index <- mclapply(groups, \(x) mutate(clump(x), centre = x$centre[1], gene = x$gene[1]),
-                  mc.cores = nCore, mc.preschedule = FALSE)
-failed <- map_lgl(index, \(x) inherits(x, 'try-error'))
-if (any(failed)) stop(sum(failed), ' clumping runs failed, e.g. ', as.character(index[[which(failed)[1]]]))
-message(length(groups), ' plink2 clumping runs in ', round(as.numeric(difftime(Sys.time(), t0, units = 'mins')), 1), ' min')
-
-independent <- bind_rows(index) %>%
-  inner_join(sig, by = c('centre', 'gene', 'variant')) %>%
-  arrange(centre, gene, pNominal) %>%
-  group_by(centre, gene) %>% mutate(signal = row_number(), nSignal = n()) %>% ungroup() %>%
+independent <- rename(called$independent, centre = set) %>%
   left_join(select(genes, centre, gene, nVar, nW, nPEER), by = c('centre', 'gene')) %>%
   select(centre, gene, chr, variant, signal, nSignal, clumpSize, nW, nPEER, nVar,
          beta, se, pNominal, qval)
