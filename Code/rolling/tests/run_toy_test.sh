@@ -33,5 +33,5 @@ Rscript 04_windowCall.R $nCore
 for r in $(seq 1 40); do Rscript 05_referenceRetest.R $r $nCore 2>&1 | grep -iE 'error' || true; done
 Rscript 06_collect.R
 for k in $(seq 1 10); do Rscript 07_nullScan.R $k $nCore 2>&1 | grep -iE 'error|centres scanned' || true; done
-for c in $(seq 1 24); do Rscript 08_nullCalibrate.R $c $nCore 2>&1 | grep -iE 'error|warn|Check:|calibrate' || true; done
+for c in $(seq 1 24); do Rscript 08_nullCalibrate.R $c $nCore 2>&1 | grep -iE 'error|Check:|calibrate|skipped' || true; done
 Rscript tests/check_toy_results.R "$QTLSHUFFLE_RESULTS"

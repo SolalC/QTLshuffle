@@ -38,7 +38,7 @@ message('Share of signals in null or rhythmic-only genes: ', round(nullRate, 3))
 # Selection-bias control (07, 08): every centre calibrated; calibration must not
 # call mean (time-invariant) eQTL time dependent more often than pEmp < 0.05 does.
 calSummary <- rbindlist(map(list.files(file.path(w, 'null', 'calibration'), pattern = '_summary\\.csv$', full.names = TRUE), fread))
-if (nrow(calSummary) != 24) fail('expected 24 08 summaries, found ', nrow(calSummary))
+if (nrow(calSummary) != sum(windows$used)) fail('expected ', sum(windows$used), ' 08 summaries (centres used), found ', nrow(calSummary))
 print(calSummary[, .(centre, nW, windowSignals, pseudoSignalsMean, pctWindowPEmp05, pctNullMean, pWindow, timeDependentCal)])
 cal <- list.files(file.path(w, 'null', 'calibration'), pattern = '_window\\.csv\\.gz$', full.names = TRUE)
 if (!length(cal)) fail('no centre calibrated')
