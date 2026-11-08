@@ -37,9 +37,13 @@ message('Share of signals in null or rhythmic-only genes: ', round(nullRate, 3))
 
 # Selection-bias control (07, 08): every centre calibrated; calibration must not
 # call mean (time-invariant) eQTL time dependent more often than pEmp < 0.05 does.
+calSummary <- rbindlist(map(list.files(file.path(w, 'null', 'calibration'), pattern = '_summary\\.csv$', full.names = TRUE), fread))
+if (nrow(calSummary) != 24) fail('expected 24 08 summaries, found ', nrow(calSummary))
+print(calSummary[, .(centre, nW, windowSignals, pseudoSignalsMean, pctWindowPEmp05, pctNullMean, pWindow, timeDependentCal)])
 cal <- list.files(file.path(w, 'null', 'calibration'), pattern = '_window\\.csv\\.gz$', full.names = TRUE)
-if (length(cal) != 24) fail('expected 24 calibrated centres, found ', length(cal))
+if (!length(cal)) fail('no centre calibrated')
 cal <- rbindlist(map(cal, fread))
+if (!setequal(cal$centre, calSummary[windowSignals > 0 & pseudoSignalsMean > 0, centre])) fail('calibrated centres do not match the summaries')
 nul <- rbindlist(map(list.files(file.path(w, 'null', 'calibration'), pattern = '_null\\.csv\\.gz$', full.names = TRUE), fread))
 if (max(abs(nul$betaSelf - nul$beta), na.rm = TRUE) > 1e-6) fail('pairBeta does not reproduce the pseudo-window scan beta')
 calSumm <- cal %>% mutate(arch = arch(gene)) %>% group_by(arch) %>%

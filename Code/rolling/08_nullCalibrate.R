@@ -48,7 +48,18 @@ window <- fread(paste0(CALL_DIR, 'independent.csv.gz'))[centre == cc]
 nullFiles <- sprintf('%sref%04d.csv.gz', NULL_SCAN_DIR, seq_len(N_NULL))
 if (!all(file.exists(nullFiles))) stop(sum(!file.exists(nullFiles)), ' 07 outputs missing, e.g. ', nullFiles[!file.exists(nullFiles)][1])
 pseudo <- rbindlist(map(nullFiles, \(f) { x <- fread(f); if (nrow(x)) x[centre == cc] else NULL }))
-if (!nrow(window) || !nrow(pseudo)) stop('Centre ', centre, ' h: no window or no pseudo-window signals to calibrate')
+# Nothing to calibrate: no window signal, or no pseudo-window signal at this centre.
+# Only the summary is written (window file absent; 09 skips the centre).
+if (!nrow(window) || !nrow(pseudo)) {
+  message('Centre ', centre, ' h: ', nrow(window), ' window and ', nrow(pseudo),
+          ' pseudo-window signals: nothing to calibrate')
+  fwrite(data.table(centre = centre, nW = win$n[centreIdx], windowSignals = nrow(window),
+                    pseudoWindows = uniqueN(pseudo$ref), pseudoSignalsMean = nrow(pseudo) / N_NULL,
+                    pctWindowPEmp05 = NA_real_, pctNullMean = NA_real_, pctNullSD = NA_real_,
+                    pctNullMin = NA_real_, pctNullMax = NA_real_, pWindow = NA_real_,
+                    timeDependentCal = 0L, untestedCal = nrow(window)), out('summary.csv'))
+  quit(save = 'no')
+}
 window[, gene := as.character(gene)]; pseudo[, gene := as.character(gene)]
 pairs <- unique(rbind(window[, .(gene, variant, chr)], pseudo[, .(gene, variant, chr)]))
 pairs[, id := .I]

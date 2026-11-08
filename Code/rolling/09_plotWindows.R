@@ -171,8 +171,10 @@ walk(names(CORRECTIONS), makeFigure)
 
 # --- Window level: % pEmp < 0.05 in each window against its pseudo-windows (08) ----------
 if (length(calFiles)) {
-  byRef <- rbindlist(map(list.files(NULL_CAL_DIR, pattern = '_nullByRef\\.csv$', full.names = TRUE), \(f)
-    fread(f)[, centre := as.numeric(sub('^c(\\d+)_.*', '\\1', basename(f)))]))
+  byRef <- rbindlist(map(list.files(NULL_CAL_DIR, pattern = '_nullByRef\\.csv$', full.names = TRUE), \(f) {
+    x <- fread(f)
+    if (nrow(x)) x[, centre := as.numeric(sub('^c(\\d+)_.*', '\\1', basename(f)))] else NULL
+  }))
   summ <- rbindlist(map(list.files(NULL_CAL_DIR, pattern = '_summary\\.csv$', full.names = TRUE), fread))
   fwrite(summ, paste0(FIG_DIR, 'nullCalibration', SUFFIX, '.csv'))
   pNull <- ggplot(byRef, aes(centre, pctPEmp05)) +
