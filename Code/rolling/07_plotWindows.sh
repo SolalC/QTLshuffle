@@ -11,7 +11,7 @@
 #SBATCH -o ../logs/%x.out
 #SBATCH -e ../logs/%x.err
 
-# Run after 06: sbatch 07_plotWindows.sh [p=0.05] [test=pEmp|pEmpLarger] [example=centre,gene,variant]
+# Run after 06: sbatch 07_plotWindows.sh [p=0.05] [test=pEmp|pEmpLarger] [independent=c,gene,var] [dependent=c,gene,var]
 cd "${SLURM_SUBMIT_DIR}"
 module load r/4.4.2-heavy
 Rscript 07_plotWindows.R "$@"
