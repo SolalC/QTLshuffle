@@ -11,7 +11,9 @@
 #   d  per window, stacked bars summing to 100%: time dependent (pEmp < P_EMP)
 #      and time independent (pEmp >= P_EMP). Signals without a reference test
 #      (pEmp missing) are left out.
-# Both examples are significant in their window (04).
+# Both examples are significant in their window (04). Examples are labelled
+# by gene symbol (GENE_GTF) and rsID (VARIANT_LOOKUP); window, n, z and pEmp
+# are in exampleSignals.csv.
 #
 # Run:     Rscript 07_plotWindows.R [p=0.05] [test=pEmp|pEmpLarger]
 #            [independent=centre,gene,variant] [dependent=centre,gene,variant]
@@ -101,10 +103,10 @@ pick <- function(key, auto, label) {
 ex <- bind_rows(
   pick(EX_IND, tested[order(-p, abs(zRef))][1], LAB_IND),
   pick(EX_DEP, tested[order(p, -abs(zRef))][1], LAB_DEP))
+ex[, `:=`(symbol = geneSymbol(gene), rsid = variantRsid(variant))]
 info <- ex %>%
-  select(example, centre, gene, variant, nW, beta, se, pNominal, qval, nRef, refMean, refSD, zRef, pEmp, pEmpLarger, p) %>%
-  mutate(label = sprintf('%s: %s, %s\nwindow %02d h (n = %d); z = %.2f; %s = %.3g',
-                         example, gene, variant, centre, nW, round(zRef, 2) + 0, P_COL, p))
+  select(example, centre, gene, symbol, variant, rsid, nW, beta, se, pNominal, qval, nRef, refMean, refSD, zRef, pEmp, pEmpLarger, p) %>%
+  mutate(label = sprintf('%s: %s, %s', example, symbol, rsid))
 fwrite(select(info, -label, -p), paste0(FIG_DIR, 'exampleSignals', SUFFIX, '.csv'))
 print(as_tibble(select(info, -label)), width = Inf)
 if (with(info, any((example == LAB_DEP) != (p < P_EMP))))

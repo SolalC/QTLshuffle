@@ -39,6 +39,11 @@ GENO_DIR       <- .envDir('QTLSHUFFLE_GENO_DIR', '/QRISdata/Q5776/QTLshuffle/')
 PLINK2         <- .envPath('QTLSHUFFLE_PLINK2', '/home/uqschauq/software/plink2')
 # Donor inferred phase (CHIRAL): R object `phi`, radians
 DIP_FILE       <- .envPath('QTLSHUFFLE_DIP_FILE', paste0(CIRCADIAN_ROOT, 'Data/CHIRAL/DIP.RData'))
+# Annotation for figures only (07): gene symbols (GENCODE v50 GTF, as in rhyh2)
+# and rsIDs (GTEx v9 WGS lookup table, rs_id_dbSNP155_GRCh38p13, as in cd-eqtl)
+GENE_GTF       <- .envPath('QTLSHUFFLE_GENE_GTF', '/QRISdata/Q9564/GENCODE/v50/GRCh38/gencode.v50.annotation.gtf.gz')
+VARIANT_LOOKUP <- .envPath('QTLSHUFFLE_VARIANT_LOOKUP', paste0('/QRISdata/Q8106/Controlled/Genotype/support_files/',
+                           'GTEx_Analysis_2021-02-11_v9_WholeGenomeSeq_953Indiv.lookup_table.txt.gz'))
 
 # --- Scope -------------------------------------------------------------------------
 TISSUE         <- .envPath('QTLSHUFFLE_TISSUE', 'Muscle_Skeletal')

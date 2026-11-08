@@ -169,3 +169,31 @@ pairTest <- function(Y, G, C) {
     tibble(beta = cf['g', 1], se = cf['g', 2], p = cf['g', 4])
   })
 }
+
+
+# --- Annotation (figures) ----------------------------------------------------------------
+
+# Gene symbol (GENCODE gene_name) for versioned or unversioned Ensembl IDs;
+# the Ensembl ID is kept where the GTF has no entry.
+geneSymbol <- function(genes, gtf = GENE_GTF) {
+  map <- read_tsv(gtf, comment = '#', col_names = FALSE, col_types = 'ccciicccc', progress = FALSE) %>%
+    filter(X3 == 'gene') %>%
+    transmute(id = sub('\\..*', '', str_match(X9, 'gene_id "([^"]+)"')[, 2]),
+              symbol = str_match(X9, 'gene_name "([^"]+)"')[, 2]) %>%
+    distinct(id, .keep_all = TRUE)
+  s <- map$symbol[match(sub('\\..*', '', genes), map$id)]
+  coalesce(s, genes)
+}
+
+# rsID for pipeline variant IDs (chr:pos:REF:ALT, 02a) from the GTEx lookup
+# table (variant_id chr_pos_REF_ALT_b38); the pipeline ID is kept where the
+# table has no rsID. Only the requested rows are read (grep).
+variantRsid <- function(variants, lookup = VARIANT_LOOKUP) {
+  gtexId <- paste0(gsub(':', '_', variants), '_b38')
+  ids <- tempfile(); writeLines(c('variant_id', unique(gtexId)), ids)
+  tab <- fread(cmd = sprintf('zcat %s | grep -wF -f %s', shQuote(lookup), ids),
+               select = c('variant_id', 'rs_id_dbSNP155_GRCh38p13'))
+  unlink(ids)
+  rs <- tab$rs_id_dbSNP155_GRCh38p13[match(gtexId, tab$variant_id)]
+  if_else(is.na(rs) | rs == '.', variants, rs)
+}
