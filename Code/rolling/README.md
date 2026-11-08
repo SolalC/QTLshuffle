@@ -59,7 +59,7 @@ Everything that is expensive is written to disk and re-used.
 | `w3h/reference/ref<r>.csv.gz` | re-test of every signal of every centre in reference sample r (β, SE, p, nShared) |
 | `w3h/results/rollingWindow.csv.gz` | **main table**: one row per signal × centre, with the window β, SE and p; nRef, refMean, refSD; zRef = (β − refMean)/refSD; two-sided pEmp; one-sided pEmpLarger (reference β at least as large in the window's direction); then `beta_ref_1` to `beta_ref_1000` |
 | `w3h/results/referenceLong.csv.gz` | β, SE and p of every reference association |
-| `w3h/figures/associationsPerWindow.{pdf,png,csv}` | 07: per centre, number of independent signals (A) and number with pEmp < 0.05 (B), with the 5% line expected without a time effect |
+| `w3h/figures/associationsPerWindow.{pdf,png,csv}` | 07: per centre, (A) number of independent signals and number with pEmp < 0.05 on one scale; (B) the latter as % of the former, with the 5% line expected without a time effect |
 
 ## Requirements
 
