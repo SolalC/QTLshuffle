@@ -239,6 +239,7 @@ callSignals <- function(pairs, nTests, nCore) {
   if (maxP > PAIR_P_STORE / 10)
     warning('Significant pairs reach p = ', signif(maxP, 2), ', close to PAIR_P_STORE (', PAIR_P_STORE, ')')
   groups <- split(sig, interaction(sig$set, sig$gene, drop = TRUE))
+  message(nrow(sig), ' significant pairs in ', length(groups), ' set x gene groups: one plink2 --clump run each')
   index <- parallel::mclapply(groups, \(x) mutate(clumpGene(x), set = x$set[1], gene = x$gene[1]),
                               mc.cores = nCore, mc.preschedule = FALSE)
   failed <- map_lgl(index, \(x) inherits(x, 'try-error'))

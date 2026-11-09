@@ -16,6 +16,7 @@
 # Outputs: Results/rolling/w<W>h/null/scan/ref<k>.csv.gz
 #            one row per pseudo-window signal: centre, ref, gene, chr, variant,
 #            signal, nSignal, clumpSize, nVar, beta, se, pNominal, qval
+#          Results/rolling/w<W>h/null/scan/ref<k>_scan.rds (scan, re-used on a rerun)
 #          Results/rolling/w<W>h/null/scan/ref<k>_summary.csv
 #            per centre: nW, cis tests, significant pairs, eGenes, signals
 # =============================================================================
@@ -34,8 +35,14 @@ tis    <- readRDS(TISSUE_FILE)
 refCov <- readRDS(covFile)          # 05: list by centre (centre, donors, cov)
 geno   <- openGenotypes(tis$donors)
 
-# 1. Scan every centre's reference k (centres in parallel, chromosomes in turn)
+# 1. Scan every centre's reference k (centres in parallel, chromosomes in turn).
+# Saved before clumping, so that a rerun (e.g. after a time-out) skips the scan.
+scanFile <- sprintf('%sref%04d_scan.rds', NULL_SCAN_DIR, k)
 t0 <- Sys.time()
+if (file.exists(scanFile)) {
+  scans <- readRDS(scanFile)
+  message('Re-using the scan of reference ', k, ' from ', scanFile)
+} else {
 scans <- parallel::mclapply(refCov, \(rc) {
   rows <- match(rc$donors, tis$donors)
   sc <- map(CHROMOSOMES, \(chrom) {
@@ -49,7 +56,9 @@ scans <- parallel::mclapply(refCov, \(rc) {
 }, mc.cores = nCore, mc.preschedule = FALSE)
 failed <- map_lgl(scans, \(x) inherits(x, 'try-error'))
 if (any(failed)) stop('Scan failed for ', sum(failed), ' centres: ', as.character(scans[[which(failed)[1]]]))
+saveRDS(scans, scanFile)
 message(length(scans), ' centres scanned in ', round(as.numeric(difftime(Sys.time(), t0, units = 'mins')), 1), ' min')
+}
 
 # 2. BH and plink2 clumping, as for the windows
 pairs  <- bind_rows(map(scans, 'pairs'))
