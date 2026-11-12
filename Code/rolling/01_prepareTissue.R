@@ -35,7 +35,7 @@ print(select(windows, centre, n, nPEER, used), n = Inf)
 
 # PEER per window. Each window's covariates are saved as soon as they are fitted
 # (windowCovariates/c<centre>.rds, donor IDs as row names) and re-used on a rerun
-# if the window donors are unchanged, so a failed job only loses unfinished windows.
+# if the window donors and k are unchanged, so a failed job only loses unfinished windows.
 covDir <- paste0(WIDTH_DIR, 'windowCovariates/')
 dir.create(covDir, showWarnings = FALSE)
 cov <- mclapply(seq_len(nrow(windows)), \(i) {
@@ -44,7 +44,7 @@ cov <- mclapply(seq_len(nrow(windows)), \(i) {
   donors <- tis$donors[windows$rows[[i]]]
   if (file.exists(f)) {
     x <- readRDS(f)
-    if (identical(rownames(x), donors)) return(x)
+    if (identical(rownames(x), donors) && hasPeerK(x, windows$nPEER[i])) return(x)
   }
   x <- windowCovariates(tis, windows$rows[[i]])
   saveRDS(x, f)

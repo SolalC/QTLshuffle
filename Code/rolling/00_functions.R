@@ -141,6 +141,9 @@ runPEER <- function(E, k) {
   X
 }
 
+# TRUE if saved covariates `x` hold exactly k PEER factors (cache check in 01 and 05).
+hasPeerK <- function(x, k) sum(startsWith(colnames(x), 'PEER')) == k
+
 # Fixed covariates plus peerK(n) PEER factors recomputed on the donor set `rows`.
 windowCovariates <- function(tis, rows) {
   cbind(tis$cov[rows, , drop = FALSE], runPEER(tis$E[rows, , drop = FALSE], peerK(length(rows))))

@@ -7,7 +7,7 @@ Are cis-eQTL found in a narrow window of inferred circadian phase (DIP) larger t
 | Step | Choice |
 |---|---|
 | Windows | 24 centres, 0 h to 23 h, 1 h apart; width `WINDOW_WIDTH_H` = 3 h; a donor is in the window if its DIP is in [centre − 1.5 h, centre + 1.5 h), wrapping around midnight (the 0 h window covers 22:30 to 01:30). Centres with < 60 donors are skipped |
-| Covariates | sex, platform, pcr, PC1–5 (GTEx v10 covariate file) and PEER factors recomputed on the window donors (all genes). Number of PEER factors as GTEx: 15 if n < 150, 30 if n < 250, 45 if n < 350, 60 otherwise |
+| Covariates | sex, platform, pcr, PC1–5 (GTEx v10 covariate file) and PEER factors recomputed on the window donors (all genes). Number of PEER factors as GTEx: 15 if n < 150, 30 if n < 250, 45 if n < 350, 60 otherwise; `QTLSHUFFLE_PEER_K` fixes k for every window and reference instead (results then go to `w<W>h_k<K>/`) |
 | Genotypes | GTEx v9 WGS VCF (953 donors, all variants), converted once with plink2: tissue donors, FILTER = PASS, biallelic, chr1–22, MAF ≥ 1 % among the tissue's donors. Dosage counts the ALT allele (plink A1) |
 | Scan | MatrixEQTL (Shabalin 2012, Bioinformatics 28:1353), linear model `y ~ g + covariates`, every gene, variants within ±1 Mb of the TSS with minor allele count ≥ 10 in the window; missing genotypes mean-imputed. Nominal p-values; **no permutations** |
 | Significant pairs and eGenes | Benjamini–Hochberg q < 0.05 over all cis tests of the window (pooled across chromosomes); an eGene has ≥ 1 significant pair. This is a pair-level FDR, not the GTEx gene-level permutation threshold |

@@ -38,7 +38,8 @@ used <- which(win$used)
 # Reference donors and covariates (PEER) for every centre, computed once and saved.
 old <- if (file.exists(covFile)) readRDS(covFile) else NULL
 reuse <- !is.null(old) && identical(map_dbl(old, 'centre'), as.numeric(win$centre[used])) &&
-  identical(map_int(old, \(x) length(x$donors)), as.integer(win$n[used]))
+  identical(map_int(old, \(x) length(x$donors)), as.integer(win$n[used])) &&
+  all(map2_lgl(old, win$nPEER[used], \(x, k) hasPeerK(x$cov, k)))
 if (reuse) {
   refCov <- old
   message('Re-using reference covariates from ', covFile)

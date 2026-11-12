@@ -70,8 +70,13 @@ PAIR_P_STORE   <- 0.01      # 03 stores pairs with p below this (all pairs with 
 CLUMP_R2       <- 0.01      # independent signals: plink2 --clump, r2 threshold
 CLUMP_KB       <- 2000      # plink2 --clump window: the whole +/- 1 Mb cis window
 
-# PEER factors as GTEx, by the number of donors in the set
-peerK <- function(n) case_when(n < 150 ~ 15, n < 250 ~ 30, n < 350 ~ 45, TRUE ~ 60)
+# PEER factors as GTEx, by the number of donors in the set, unless QTLSHUFFLE_PEER_K
+# fixes k for every set (e.g. 15 at all widths, so widths differ only in their donors).
+PEER_K         <- .envNum('QTLSHUFFLE_PEER_K', NA)
+peerK <- function(n) {
+  if (!is.na(PEER_K)) return(rep(PEER_K, length(n)))
+  case_when(n < 150 ~ 15, n < 250 ~ 30, n < 350 ~ 45, TRUE ~ 60)
+}
 PEER_ITER      <- 1000      # PEER maximum iterations
 
 # --- 24 h reference samples ------------------------------------------------------------
@@ -97,7 +102,8 @@ PEER_RSCRIPT   <- .envPath('QTLSHUFFLE_PEER_RSCRIPT', '/home/uqschauq/software/p
 
 # --- Results ---------------------------------------------------------------------------
 DATA_DIR  <- paste0(RESULTS_DIR, 'data/')                            # 01 (window-free)
-WIDTH_DIR <- paste0(RESULTS_DIR, 'w', WINDOW_WIDTH_H, 'h/')          # everything per width
+WIDTH_DIR <- paste0(RESULTS_DIR, 'w', WINDOW_WIDTH_H, 'h',           # everything per width
+                    if (is.na(PEER_K)) '' else paste0('_k', PEER_K), '/')  # (and fixed k)
 TISSUE_FILE  <- paste0(DATA_DIR, 'tissue.rds')                       # 01
 WINDOW_FILE  <- paste0(WIDTH_DIR, 'windowCovariates.rds')            # 01
 SCAN_DIR  <- paste0(WIDTH_DIR, 'scan/')                              # 03
