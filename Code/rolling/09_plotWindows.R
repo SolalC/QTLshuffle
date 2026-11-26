@@ -121,7 +121,10 @@ makeFigure <- function(correction) {
               untested = sum(is.na(p)), minRef = min(nRef), .groups = 'drop') %>%
     right_join(select(filter(win, used), centre, nW = n), by = 'centre') %>%   # skipped windows (n < MIN_WINDOW_N) are left out, not plotted as 0
     mutate(across(c(signals, eGenes, timeDependent, timeIndependent, timeDependentRefNonZero, timeDependentRefZero, untested), \(v) replace_na(v, 0L)),
-           pctTimeDependent = 100 * timeDependent / (timeDependent + timeIndependent)) %>%
+           pctTimeDependent = 100 * timeDependent / (timeDependent + timeIndependent),
+           pctTimeDependentRefNonZero = 100 * timeDependentRefNonZero / (timeDependent + timeIndependent),   # the three pct* below are the bars of panel d
+           pctTimeDependentRefZero = 100 * timeDependentRefZero / (timeDependent + timeIndependent),
+           pctTimeIndependent = 100 * timeIndependent / (timeDependent + timeIndependent)) %>%
     arrange(centre)
   fwrite(counts, paste0(FIG_DIR, 'associationsPerWindow', tag, '.csv'))
   message(correction, ': ', sum(counts$timeDependent), ' of ', sum(counts$signals - counts$untested),
