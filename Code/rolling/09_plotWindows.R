@@ -19,8 +19,15 @@
 #      pAdj < PAIR_ALPHA, SIGNALS_PER_GENE) and those that are time dependent.
 #   c  time-dependent example, as a. Default: smallest (adjusted) p (ties:
 #      largest |zRef|).
-#   d  per window, stacked bars summing to 100%: time dependent and time
-#      independent. Signals without a reference test (pEmp missing) are left out.
+#   d  per window, stacked bars summing to 100%: time dependent with a 24 h
+#      effect different from zero (blue), time dependent with a 24 h effect
+#      that overlaps zero (red), and time independent (grey). Signals without a
+#      reference test (pEmp missing) are left out.
+# 24 h effect different from zero: the N_REF reference betas (n_W donors drawn
+# over 24 h) exclude zero, pZero < P_EMP, with
+#   pZero = min(1, 2 (1 + #{reference betas on the minority side of 0}) / (1 + nRef)),
+# i.e. 0 lies outside the central (1 - P_EMP) of the reference distribution.
+# This is judged at the window's sample size n_W, not with all donors.
 # Both examples are significant in their window (04). They are labelled by
 # gene symbol (GENE_GTF) and rsID (VARIANT_LOOKUP); window, n, z and p are in
 # exampleSignals_<correction>.csv.
@@ -56,6 +63,12 @@ dir.create(FIG_DIR, recursive = TRUE, showWarnings = FALSE)
 full <- fread(paste0(OUT_DIR, 'rollingWindow.csv.gz'))
 full[, pNom := get(P_COL)]
 full[!is.na(pNom), pBH := p.adjust(pNom, 'BH'), by = centre]   # BH within each window
+# Is the 24 h (reference) distribution of beta away from zero? (see header)
+B <- as.matrix(full[, grep('^beta_ref_', names(full)), with = FALSE])
+nR <- rowSums(!is.na(B))
+full[, pZero := ifelse(nR > 0, pmin(1, 2 * (1 + pmin(rowSums(B < 0, na.rm = TRUE), rowSums(B > 0, na.rm = TRUE))) / (1 + nR)), NA_real_)]
+full[, refNonZero := pZero < P_EMP]
+rm(B)
 # Calibrated against the pseudo-window null (08), if it has been run
 calFiles <- list.files(NULL_CAL_DIR, pattern = '_window\\.csv\\.gz$', full.names = TRUE)
 CORRECTIONS <- c(nominal = 'pNom', BH = 'pBH')
@@ -71,8 +84,10 @@ win  <- fread(paste0(WIDTH_DIR, 'windows.csv'))
 LAB_ALL <- sprintf('All signals (window %s p < %g)', if (PAIR_CORRECTION == 'BH') 'BH-adjusted' else 'Bonferroni', PAIR_ALPHA)
 LAB_DEP <- 'Time dependent'
 LAB_IND <- 'Time independent'
-SERIES  <- c(LAB_ALL, LAB_DEP, LAB_IND)
-COLOURS <- setNames(c('#2b5d8a', '#b2443a', '#b9c3cc'), SERIES)
+LAB_DNZ <- 'Time dependent, 24 h effect != 0'
+LAB_DZ  <- 'Time dependent, 24 h effect overlaps 0'
+SERIES  <- c(LAB_ALL, LAB_DEP, LAB_IND, LAB_DNZ, LAB_DZ)
+COLOURS <- setNames(c('grey25', '#b2443a', '#b9c3cc', '#2b5d8a', '#b2443a'), SERIES)
 X_TIME  <- scale_x_continuous(breaks = seq(0, 21, 3), limits = c(-0.5, 23.5), expand = expansion(0))
 THEME   <- theme_bw(base_size = 10) + theme(panel.grid.minor = element_blank())
 
@@ -95,31 +110,35 @@ keys[, `:=`(symbol = geneSymbol(gene), rsid = variantRsid(variant))]
 makeFigure <- function(correction) {
   pc  <- CORRECTIONS[[correction]]
   tag <- paste0('_', correction, SUFFIX)
-  d   <- full[, .(centre, gene, nRef, p = get(pc))]
+  d   <- full[, .(centre, gene, nRef, refNonZero, p = get(pc))]
 
   counts <- d %>%
     group_by(centre) %>%
     summarise(signals = n(), eGenes = n_distinct(gene),
               timeDependent = sum(p < P_EMP, na.rm = TRUE), timeIndependent = sum(p >= P_EMP, na.rm = TRUE),
+              timeDependentRefNonZero = sum(p < P_EMP & refNonZero, na.rm = TRUE),
+              timeDependentRefZero = sum(p < P_EMP & !refNonZero, na.rm = TRUE),
               untested = sum(is.na(p)), minRef = min(nRef), .groups = 'drop') %>%
     right_join(select(filter(win, used), centre, nW = n), by = 'centre') %>%   # skipped windows (n < MIN_WINDOW_N) are left out, not plotted as 0
-    mutate(across(c(signals, eGenes, timeDependent, timeIndependent, untested), \(v) replace_na(v, 0L)),
+    mutate(across(c(signals, eGenes, timeDependent, timeIndependent, timeDependentRefNonZero, timeDependentRefZero, untested), \(v) replace_na(v, 0L)),
            pctTimeDependent = 100 * timeDependent / (timeDependent + timeIndependent)) %>%
     arrange(centre)
   fwrite(counts, paste0(FIG_DIR, 'associationsPerWindow', tag, '.csv'))
   message(correction, ': ', sum(counts$timeDependent), ' of ', sum(counts$signals - counts$untested),
-          ' tested signals time dependent (', P_COL, if (correction == 'BH') ' BH-adjusted', ' < ', P_EMP, ')')
+          ' tested signals time dependent (', P_COL, if (correction == 'BH') ' BH-adjusted', ' < ', P_EMP, '), ', sum(counts$timeDependentRefNonZero), ' of them with a 24 h effect != 0')
 
   lines <- bind_rows(
     transmute(counts, centre, nW, series = LAB_ALL, value = signals),
     transmute(counts, centre, nW, series = LAB_DEP, value = timeDependent)) %>%
     mutate(series = factor(series, SERIES))
+  barSeries <- c(LAB_DNZ, LAB_DZ, LAB_IND)        # bottom to top
   bars <- bind_rows(
-    transmute(counts, centre, series = LAB_DEP, value = timeDependent),
+    transmute(counts, centre, series = LAB_DNZ, value = timeDependentRefNonZero),
+    transmute(counts, centre, series = LAB_DZ, value = timeDependentRefZero),
     transmute(counts, centre, series = LAB_IND, value = timeIndependent)) %>%
     group_by(centre) %>% mutate(value = 100 * value / sum(value)) %>% ungroup() %>%
     filter(!is.na(value)) %>%
-    mutate(series = factor(series, rev(SERIES)))   # time dependent at the bottom
+    mutate(series = factor(series, rev(barSeries)))
 
   pCount <- ggplot(lines, aes(centre, value, colour = series)) +
     geom_line() + geom_point(aes(size = nW)) +
@@ -130,7 +149,7 @@ makeFigure <- function(correction) {
   pBar <- ggplot(bars, aes(centre, value, fill = series)) +
     geom_col(width = 0.85) +
     X_TIME + scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 25), expand = expansion(0)) +
-    scale_fill_manual(values = COLOURS, breaks = c(LAB_DEP, LAB_IND), name = NULL) +
+    scale_fill_manual(values = COLOURS[barSeries], breaks = barSeries, name = NULL) +
     labs(x = 'Window centre (h, DIP time)', y = 'Associations (%)') + THEME
 
   ex <- rbindlist(list(copy(picks[[correction]]$ind)[, example := LAB_IND],
@@ -139,7 +158,7 @@ makeFigure <- function(correction) {
   ex <- keys[ex, on = c('gene', 'variant')]
   info <- ex %>%
     select(example, centre, gene, symbol, variant, rsid, nW, beta, se, pNominal, pAdj, nRef,
-           refMean, refSD, zRef, pEmp, pEmpLarger, pBH, any_of(c('pCal', 'qCal')), p) %>%
+           refMean, refSD, zRef, pZero, pEmp, pEmpLarger, pBH, any_of(c('pCal', 'qCal')), p) %>%
     mutate(label = sprintf('%s: %s, %s', example, symbol, rsid))
   fwrite(select(info, -label, -p), paste0(FIG_DIR, 'exampleSignals', tag, '.csv'))
   if (with(info, any((example == LAB_DEP) != (p < P_EMP))))
