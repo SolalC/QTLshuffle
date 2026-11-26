@@ -15,8 +15,8 @@
 #   a  time-independent example: histogram of the N_REF reference betas
 #      (same gene, variant and n, donors drawn over 24 h), red line at the
 #      window beta. Default: largest (adjusted) p (ties: smallest |zRef|).
-#   b  per window centre, on one count scale: independent signals (04, BH
-#      q < PAIR_FDR, clumped) and those that are time dependent.
+#   b  per window centre, on one count scale: signals (04,
+#      pAdj < PAIR_ALPHA, SIGNALS_PER_GENE) and those that are time dependent.
 #   c  time-dependent example, as a. Default: smallest (adjusted) p (ties:
 #      largest |zRef|).
 #   d  per window, stacked bars summing to 100%: time dependent and time
@@ -28,7 +28,7 @@
 # Run:     Rscript 09_plotWindows.R [p=0.05] [test=pEmp|pEmpLarger]
 #            [independent=centre,gene,variant] [dependent=centre,gene,variant]
 #          (independent= / dependent= replace the automatic examples in both figures)
-# Outputs: Results/rolling/w<W>h/figures/rollingWindow_{nominal,BH,calibrated}.{pdf,png},
+# Outputs: Results/rolling/w<W>h/<rule>/figures/rollingWindow_{nominal,BH,calibrated}.{pdf,png},
 #          associationsPerWindow_{...}.csv, exampleSignals_{...}.csv,
 #          nullCalibration.{pdf,png,csv}
 #          (suffix _<test><p> when the test or threshold is not the default)
@@ -50,7 +50,7 @@ EX_DEP <- argVal('dependent', NA)
 stopifnot(P_COL %in% c('pEmp', 'pEmpLarger'), P_EMP > 0, P_EMP < 1)
 SUFFIX <- if (P_COL != 'pEmp' || P_EMP != 0.05) sprintf('_%s%g', P_COL, P_EMP) else ''
 
-FIG_DIR <- paste0(WIDTH_DIR, 'figures/')
+FIG_DIR <- paste0(RULE_DIR, 'figures/')
 dir.create(FIG_DIR, recursive = TRUE, showWarnings = FALSE)
 
 full <- fread(paste0(OUT_DIR, 'rollingWindow.csv.gz'))
@@ -68,7 +68,7 @@ if (length(calFiles)) {
 } else message('No 08 output in ', NULL_CAL_DIR, ': nominal and BH figures only')
 win  <- fread(paste0(WIDTH_DIR, 'windows.csv'))
 
-LAB_ALL <- sprintf('All signals (window q < %g)', PAIR_FDR)
+LAB_ALL <- sprintf('All signals (window %s p < %g)', if (PAIR_CORRECTION == 'BH') 'BH-adjusted' else 'Bonferroni', PAIR_ALPHA)
 LAB_DEP <- 'Time dependent'
 LAB_IND <- 'Time independent'
 SERIES  <- c(LAB_ALL, LAB_DEP, LAB_IND)
@@ -138,7 +138,7 @@ makeFigure <- function(correction) {
   ex[, p := get(pc)]
   ex <- keys[ex, on = c('gene', 'variant')]
   info <- ex %>%
-    select(example, centre, gene, symbol, variant, rsid, nW, beta, se, pNominal, qval, nRef,
+    select(example, centre, gene, symbol, variant, rsid, nW, beta, se, pNominal, pAdj, nRef,
            refMean, refSD, zRef, pEmp, pEmpLarger, pBH, any_of(c('pCal', 'qCal')), p) %>%
     mutate(label = sprintf('%s: %s, %s', example, symbol, rsid))
   fwrite(select(info, -label, -p), paste0(FIG_DIR, 'exampleSignals', tag, '.csv'))

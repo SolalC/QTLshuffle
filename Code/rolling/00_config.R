@@ -63,11 +63,18 @@ MIN_WINDOW_N   <- .envNum('QTLSHUFFLE_MIN_WINDOW_N', 60)  # centres with fewer d
 CIS_WINDOW     <- 1e6       # bp either side of the TSS
 MAF_THRESHOLD  <- 0.01      # minimum MAF across the tissue's donors (02a)
 MIN_MAC        <- 10        # minimum minor allele count in each donor set tested
-PAIR_FDR       <- 0.05      # significant pair: Benjamini-Hochberg q < PAIR_FDR over all cis
-                            # tests of the window (MatrixEQTL's FDR, pooled across chromosomes)
-PAIR_P_STORE   <- 0.01      # 03 stores pairs with p below this (all pairs with q < PAIR_FDR
+# Significant pairs: p adjusted over all cis tests of the window (pooled across
+# chromosomes, i.e. as one genome-wide MatrixEQTL run), significant if pAdj < PAIR_ALPHA.
+# 'bonferroni' (default): pAdj = min(1, p x nTests), a family-wise rate;
+# 'BH': Benjamini-Hochberg q-value (MatrixEQTL's FDR).
+PAIR_CORRECTION <- match.arg(.envPath('QTLSHUFFLE_CORRECTION', 'bonferroni'), c('bonferroni', 'BH'))
+PAIR_ALPHA     <- .envNum('QTLSHUFFLE_PAIR_ALPHA', 0.05)
+# Signals per eGene: 'lead' (default) keeps one locus per gene, the significant pair with
+# the smallest p (no clumping); 'clump' keeps every plink2 --clump index variant.
+SIGNALS_PER_GENE <- match.arg(.envPath('QTLSHUFFLE_SIGNALS', 'lead'), c('lead', 'clump'))
+PAIR_P_STORE   <- 0.01      # 03 stores pairs with p below this (all significant pairs
                             # have far smaller p; 04 checks)
-CLUMP_R2       <- 0.01      # independent signals: plink2 --clump, r2 threshold
+CLUMP_R2       <- 0.01      # SIGNALS_PER_GENE = 'clump' only: plink2 --clump r2 threshold
 CLUMP_KB       <- 2000      # plink2 --clump window: the whole +/- 1 Mb cis window
 
 # PEER factors as GTEx, by the number of donors in the set, unless QTLSHUFFLE_PEER_K
@@ -107,13 +114,19 @@ WIDTH_DIR <- paste0(RESULTS_DIR, 'w', WINDOW_WIDTH_H, 'h',           # everythin
 TISSUE_FILE  <- paste0(DATA_DIR, 'tissue.rds')                       # 01
 WINDOW_FILE  <- paste0(WIDTH_DIR, 'windowCovariates.rds')            # 01
 SCAN_DIR  <- paste0(WIDTH_DIR, 'scan/')                              # 03
-CALL_DIR  <- paste0(WIDTH_DIR, 'calls/')                             # 04
-REF_DIR   <- paste0(WIDTH_DIR, 'reference/')                         # 05: re-test results
 REF_COV_DIR <- paste0(WIDTH_DIR, 'referenceCovariates/')            # 05: donors, PEER, covariates
-OUT_DIR   <- paste0(WIDTH_DIR, 'results/')                           # 06
-NULL_SCAN_DIR <- paste0(WIDTH_DIR, 'null/scan/')                     # 07: pseudo-window signals
-NULL_CAL_DIR  <- paste0(WIDTH_DIR, 'null/calibration/')              # 08: re-tests, calibration
-for (.d in c(DATA_DIR, SCAN_DIR, CALL_DIR, REF_DIR, REF_COV_DIR, OUT_DIR, NULL_SCAN_DIR, NULL_CAL_DIR)) dir.create(.d, recursive = TRUE, showWarnings = FALSE)
+NULL_SCAN_DIR <- paste0(WIDTH_DIR, 'null/scan/')                     # 07: pseudo-window scans (cache)
+# Everything that depends on how signals are called goes in a folder per rule, e.g.
+# w3h/bonferroni_lead/, so that rules can be compared without rescanning (03, 07 scans)
+# or refitting PEER (01, 05 covariates).
+CALL_RULE <- paste0(PAIR_CORRECTION, '_', SIGNALS_PER_GENE)
+RULE_DIR  <- paste0(WIDTH_DIR, CALL_RULE, '/')
+CALL_DIR  <- paste0(RULE_DIR, 'calls/')                              # 04
+REF_DIR   <- paste0(RULE_DIR, 'reference/')                          # 05: re-test results
+OUT_DIR   <- paste0(RULE_DIR, 'results/')                            # 06
+NULL_CALL_DIR <- paste0(RULE_DIR, 'null/calls/')                     # 07: pseudo-window signals
+NULL_CAL_DIR  <- paste0(RULE_DIR, 'null/calibration/')               # 08: re-tests, calibration
+for (.d in c(DATA_DIR, SCAN_DIR, CALL_DIR, REF_DIR, REF_COV_DIR, OUT_DIR, NULL_SCAN_DIR, NULL_CALL_DIR, NULL_CAL_DIR)) dir.create(.d, recursive = TRUE, showWarnings = FALSE)
 
 .a <- commandArgs(FALSE); .f <- sub('^--file=', '', .a[grep('^--file=', .a)])
 CODE_DIR <- Sys.getenv('QTLSHUFFLE_CODE_DIR', if (length(.f)) dirname(normalizePath(.f)) else normalizePath('.'))

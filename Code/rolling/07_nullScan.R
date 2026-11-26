@@ -5,19 +5,20 @@
 # reference k of that centre (nW donors drawn over 24 h, PEER covariates saved
 # by 05) goes through exactly the window procedure (same functions as 03/04):
 #   1. MatrixEQTL cis scan, chromosome by chromosome (scanChromosome);
-#   2. BH over all cis tests of the set, q < PAIR_FDR, and plink2 clumping of
-#      each significant gene (callSignals).
+#   2. the same calling rule as the windows (callSignals: PAIR_CORRECTION over
+#      all cis tests of the set, pAdj < PAIR_ALPHA, then SIGNALS_PER_GENE).
 # The resulting "pseudo-window" signals are selected like the window signals
 # (significance threshold and lead variant) but have no time structure. 08
 # tests them against the other references.
 #
 # Run:     sbatch 07_nullScan.sh       (array 1..N_NULL, after 05)
 # Usage:   Rscript 07_nullScan.R <reference sample k> <n cores>
-# Outputs: Results/rolling/w<W>h/null/scan/ref<k>.csv.gz
+# Outputs: Results/rolling/w<W>h/<rule>/null/calls/ref<k>.csv.gz
 #            one row per pseudo-window signal: centre, ref, gene, chr, variant,
-#            signal, nSignal, clumpSize, nVar, beta, se, pNominal, qval
-#          Results/rolling/w<W>h/null/scan/ref<k>_scan.rds (scan, re-used on a rerun)
-#          Results/rolling/w<W>h/null/scan/ref<k>_summary.csv
+#            signal, nSignal, clumpSize, nVar, beta, se, pNominal, pAdj
+#          Results/rolling/w<W>h/null/scan/ref<k>_scan.rds (scan, re-used on a rerun
+#            and by every calling rule)
+#          Results/rolling/w<W>h/<rule>/null/calls/ref<k>_summary.csv
 #            per centre: nW, cis tests, significant pairs, eGenes, signals
 # =============================================================================
 
@@ -26,8 +27,8 @@ source(file.path(if (length(.f)) dirname(normalizePath(.f)) else '.', '00_config
 args <- commandArgs(trailingOnly = TRUE)
 k <- as.integer(args[1]); nCore <- as.integer(args[2])
 if (k > N_NULL || k > N_REF) stop('Reference sample ', k, ' > N_NULL or N_REF')
-outFile <- sprintf('%sref%04d.csv.gz', NULL_SCAN_DIR, k)
-sumFile <- sprintf('%sref%04d_summary.csv', NULL_SCAN_DIR, k)
+outFile <- sprintf('%sref%04d.csv.gz', NULL_CALL_DIR, k)
+sumFile <- sprintf('%sref%04d_summary.csv', NULL_CALL_DIR, k)
 covFile <- sprintf('%sref%04d.rds', REF_COV_DIR, k)
 if (!file.exists(covFile)) stop(covFile, ' missing: run 05 for reference ', k, ' first')
 
@@ -36,7 +37,7 @@ refCov <- readRDS(covFile)          # 05: list by centre (centre, donors, cov)
 geno   <- openGenotypes(tis$donors)
 
 # 1. Scan every centre's reference k (centres in parallel, chromosomes in turn).
-# Saved before clumping, so that a rerun (e.g. after a time-out) skips the scan.
+# Saved before calling, so that a rerun (e.g. after a time-out) skips the scan.
 scanFile <- sprintf('%sref%04d_scan.rds', NULL_SCAN_DIR, k)
 t0 <- Sys.time()
 if (file.exists(scanFile)) {
@@ -60,18 +61,18 @@ saveRDS(scans, scanFile)
 message(length(scans), ' centres scanned in ', round(as.numeric(difftime(Sys.time(), t0, units = 'mins')), 1), ' min')
 }
 
-# 2. BH and plink2 clumping, as for the windows
+# 2. Calling, as for the windows
 pairs  <- bind_rows(map(scans, 'pairs'))
 genes  <- bind_rows(map(scans, 'genes'))
 nTests <- tibble(set = map_dbl(scans, 'centre'), nTestsSet = map_dbl(scans, 'nTests'))
 t0 <- Sys.time()
 called <- callSignals(pairs, nTests, nCore)
-message('BH and plink2 clumping in ', round(as.numeric(difftime(Sys.time(), t0, units = 'mins')), 1), ' min')
+message(CALL_RULE, ' calling in ', round(as.numeric(difftime(Sys.time(), t0, units = 'mins')), 1), ' min')
 
 independent <- called$independent %>%
   left_join(select(genes, set, gene, nVar), by = c('set', 'gene')) %>%
   transmute(centre = set, ref = k, gene, chr, variant, signal, nSignal, clumpSize, nVar,
-            beta, se, pNominal, qval)
+            beta, se, pNominal, pAdj)
 fwrite(independent, outFile)
 
 summary <- tibble(centre = map_dbl(scans, 'centre'), nW = map_int(scans, 'nW'), nTests = nTests$nTestsSet) %>%

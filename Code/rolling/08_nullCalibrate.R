@@ -23,7 +23,7 @@
 #
 # Run:     sbatch 08_nullCalibrate.sh   (array 1..24 centres, after every 07 task)
 # Usage:   Rscript 08_nullCalibrate.R <centre index> <n cores>
-# Outputs: Results/rolling/w<W>h/null/calibration/
+# Outputs: Results/rolling/w<W>h/<rule>/null/calibration/
 #            c<cc>_window.csv.gz   window signals: zW, zBin, nCmp, refMeanK, refSDK,
 #                                  zRefK, pEmpK, pCal, qCal, timeDependent
 #            c<cc>_null.csv.gz     pseudo-window signals: ref, zW, zBin, nCmp, zRef, pEmp, betaSelf
@@ -45,7 +45,7 @@ if (!win$used[centreIdx]) { message('Centre ', centre, ' h skipped (< ', MIN_WIN
 # --- 1. Pairs -------------------------------------------------------------------------
 cc <- centre   # (data.table: avoid the column name)
 window <- fread(paste0(CALL_DIR, 'independent.csv.gz'))[centre == cc]
-nullFiles <- sprintf('%sref%04d.csv.gz', NULL_SCAN_DIR, seq_len(N_NULL))
+nullFiles <- sprintf('%sref%04d.csv.gz', NULL_CALL_DIR, seq_len(N_NULL))
 if (!all(file.exists(nullFiles))) stop(sum(!file.exists(nullFiles)), ' 07 outputs missing, e.g. ', nullFiles[!file.exists(nullFiles)][1])
 pseudo <- rbindlist(map(nullFiles, \(f) { x <- fread(f); if (nrow(x)) x[centre == cc] else NULL }))
 # Nothing to calibrate: no window signal, or no pseudo-window signal at this centre.
@@ -142,9 +142,9 @@ print(window[, .(signals = .N, pctPEmp05 = round(100 * mean(pEmpK < 0.05, na.rm 
                  pctTimeDependentCal = round(100 * mean(timeDependent, na.rm = TRUE), 1), nullSignals = nNullBin[1]),
              by = zBin][order(zBin)])
 
-fwrite(window[, .(centre, gene, chr, variant, signal, nW, beta, se, pNominal, qval, zW, zBin, nNullBin,
+fwrite(window[, .(centre, gene, chr, variant, signal, nW, beta, se, pNominal, pAdj, zW, zBin, nNullBin,
                   nCmp, refMeanK, refSDK, zRefK, pEmpK, pCal, qCal, timeDependent)], out('window.csv.gz'))
-fwrite(pseudo[, .(centre, ref, gene, chr, variant, signal, beta, se, pNominal, qval, zW, zBin,
+fwrite(pseudo[, .(centre, ref, gene, chr, variant, signal, beta, se, pNominal, pAdj, zW, zBin,
                   nCmp, refMean, refSD, zRef, pEmp, betaSelf)], out('null.csv.gz'))
 fwrite(nullByRef, out('nullByRef.csv'))
 fwrite(summary, out('summary.csv'))

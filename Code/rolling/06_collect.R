@@ -3,7 +3,7 @@
 #     association and the N_REF 24 h reference associations
 #
 # Columns: centre (h), gene, variant, signal, clump size, nW, nPEER, window
-# beta/se/p and BH q-value (04); reference summary: nRef (non-missing),
+# beta/se/p and adjusted p, pAdj (04); reference summary: nRef (non-missing),
 # refMean, refSD, nSharedMean (window donors in a reference sample, mean),
 #   zRef      = (beta - refMean) / refSD
 #   pEmp      = (1 + #{|beta_ref - refMean| >= |beta - refMean|}) / (1 + nRef)
@@ -14,7 +14,7 @@
 # association are in referenceLong.csv.gz.
 #
 # Run:     Rscript 06_collect.R        (after every 05 task)
-# Outputs: Results/rolling/w<W>h/results/rollingWindow.csv.gz,
+# Outputs: Results/rolling/w<W>h/<rule>/results/rollingWindow.csv.gz,
 #          referenceLong.csv.gz, missingReference.csv (if any)
 # =============================================================================
 

@@ -3,12 +3,14 @@ suppressPackageStartupMessages({ library(tidyverse); library(data.table) })
 res <- commandArgs(trailingOnly = TRUE)[1]
 fail <- function(...) { message('FAIL: ', ...); quit(status = 1) }
 w <- file.path(res, 'w3h')
+# calling-rule folder, as CALL_RULE in 00_config.R
+r <- file.path(w, paste0(Sys.getenv('QTLSHUFFLE_CORRECTION', 'bonferroni'), '_', Sys.getenv('QTLSHUFFLE_SIGNALS', 'lead')))
 
 windows <- fread(file.path(w, 'windows.csv'))
 if (nrow(windows) != 24) fail('expected 24 window centres')
 print(windows)
-if (file.exists(file.path(w, 'results', 'missingReference.csv'))) fail('missing reference samples')
-out <- fread(file.path(w, 'results', 'rollingWindow.csv.gz'))
+if (file.exists(file.path(r, 'results', 'missingReference.csv'))) fail('missing reference samples')
+out <- fread(file.path(r, 'results', 'rollingWindow.csv.gz'))
 if (!nrow(out)) fail('no independent signals')
 if (sum(startsWith(names(out), 'beta_ref_')) != 40) fail('expected 40 beta_ref columns')
 if (any(out$nRef < 30)) fail('signals with < 30 non-missing reference betas')
@@ -20,7 +22,8 @@ if (sum(h >= 22.5 | h < 1.5) != windows[centre == 0, n]) fail('0 h window does n
 
 # Toy genes 1-10 per chromosome are phase QTL, 11-20 amplitude QTL, 21-30 mean
 # eQTL, 31-40 rhythmic only, 41-150 null. Each has one causal variant, so one
-# independent signal per eGene is expected (more = clumping too lenient).
+# signal per eGene is expected (always so with SIGNALS_PER_GENE = 'lead'; more
+# with 'clump' = clumping too lenient).
 arch <- \(gene) { k <- as.integer(str_sub(gene, 7, 9))
   case_when(k <= 10 ~ 'phase', k <= 20 ~ 'amplitude', k <= 30 ~ 'mean', k <= 40 ~ 'rhythmic only', TRUE ~ 'null') }
 summ <- out %>% mutate(arch = arch(gene)) %>% group_by(arch) %>%
@@ -37,14 +40,14 @@ message('Share of signals in null or rhythmic-only genes: ', round(nullRate, 3))
 
 # Selection-bias control (07, 08): every centre calibrated; calibration must not
 # call mean (time-invariant) eQTL time dependent more often than pEmp < 0.05 does.
-calSummary <- rbindlist(map(list.files(file.path(w, 'null', 'calibration'), pattern = '_summary\\.csv$', full.names = TRUE), fread))
+calSummary <- rbindlist(map(list.files(file.path(r, 'null', 'calibration'), pattern = '_summary\\.csv$', full.names = TRUE), fread))
 if (nrow(calSummary) != sum(windows$used)) fail('expected ', sum(windows$used), ' 08 summaries (centres used), found ', nrow(calSummary))
 print(calSummary[, .(centre, nW, windowSignals, pseudoSignalsMean, pctWindowPEmp05, pctNullMean, pWindow, timeDependentCal)])
-cal <- list.files(file.path(w, 'null', 'calibration'), pattern = '_window\\.csv\\.gz$', full.names = TRUE)
+cal <- list.files(file.path(r, 'null', 'calibration'), pattern = '_window\\.csv\\.gz$', full.names = TRUE)
 if (!length(cal)) fail('no centre calibrated')
 cal <- rbindlist(map(cal, fread))
 if (!setequal(cal$centre, calSummary[windowSignals > 0 & pseudoSignalsMean > 0, centre])) fail('calibrated centres do not match the summaries')
-nul <- rbindlist(map(list.files(file.path(w, 'null', 'calibration'), pattern = '_null\\.csv\\.gz$', full.names = TRUE), fread))
+nul <- rbindlist(map(list.files(file.path(r, 'null', 'calibration'), pattern = '_null\\.csv\\.gz$', full.names = TRUE), fread))
 if (max(abs(nul$betaSelf - nul$beta), na.rm = TRUE) > 1e-6) fail('pairBeta does not reproduce the pseudo-window scan beta')
 calSumm <- cal %>% mutate(arch = arch(gene)) %>% group_by(arch) %>%
   summarise(signals = n(), pEmpKBelow05 = mean(pEmpK < 0.05, na.rm = TRUE),

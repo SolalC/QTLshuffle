@@ -8,7 +8,7 @@
 #   Windows        circularHourDiff, windowRows, referenceSample
 #   Covariates     runPEER, windowCovariates
 #   Association    meanImpute, minorAlleleCount, pairTest (lm)
-#   Scan and call  scanChromosome (MatrixEQTL), callSignals (BH + plink2 --clump),
+#   Scan and call  scanChromosome (MatrixEQTL), callSignals (Bonferroni or BH; lead pair or clumping),
 #                  pairBeta (MatrixEQTL beta of given pairs)
 # The same scan and call functions are used for windows (03, 04) and for
 # reference samples treated as windows (07), so that both are selected alike.
@@ -228,19 +228,30 @@ clumpGene <- function(x) {
   fread(out) %>% transmute(variant = ID, clumpSize = TOTAL + 1L)
 }
 
-# Significant pairs and independent signals of one or more donor sets:
-#   BH q-value of every stored pair over all cis tests of its set (nTests:
-#   set, nTestsSet), significant pair q < PAIR_FDR, then each significant
-#   gene's variants clumped with plink2 (clumpGene). pairs: set, gene, chr,
-#   variant, beta, se, t, pNominal. Returns list(sig, independent).
+# Significant pairs and signals of one or more donor sets:
+#   p of every stored pair adjusted over all cis tests of its set (nTests: set,
+#   nTestsSet; PAIR_CORRECTION, Bonferroni or BH), significant pair pAdj <
+#   PAIR_ALPHA; then the signals of each significant gene (SIGNALS_PER_GENE):
+#   'lead', its pair with the smallest p (one signal per gene; clumpSize = the
+#   gene's number of significant pairs), or 'clump', every plink2 index variant
+#   (clumpGene). pairs: set, gene, chr, variant, beta, se, t, pNominal.
+#   Returns list(sig, independent).
 callSignals <- function(pairs, nTests, nCore) {
   pairs <- pairs %>% left_join(nTests, by = 'set') %>%
-    group_by(set) %>% mutate(qval = p.adjust(pNominal, 'BH', n = nTestsSet[1])) %>% ungroup()
-  sig <- filter(pairs, qval < PAIR_FDR) %>% arrange(set, gene, pNominal)
+    group_by(set) %>% mutate(pAdj = p.adjust(pNominal, PAIR_CORRECTION, n = nTestsSet[1])) %>% ungroup()
+  sig <- filter(pairs, pAdj < PAIR_ALPHA) %>% arrange(set, gene, pNominal)
   if (!nrow(sig)) return(list(sig = sig, independent = mutate(sig, clumpSize = integer(), signal = integer(), nSignal = integer())))
   maxP <- max(sig$pNominal)
   if (maxP > PAIR_P_STORE / 10)
     warning('Significant pairs reach p = ', signif(maxP, 2), ', close to PAIR_P_STORE (', PAIR_P_STORE, ')')
+  if (SIGNALS_PER_GENE == 'lead') {
+    # sig is sorted by p within set x gene, so the first row is the lead pair
+    independent <- sig %>% group_by(set, gene) %>%
+      mutate(clumpSize = n()) %>% slice(1) %>% ungroup() %>%
+      mutate(signal = 1L, nSignal = 1L)
+    message(nrow(sig), ' significant pairs; lead pair of each of ', nrow(independent), ' set x gene groups kept')
+    return(list(sig = sig, independent = independent))
+  }
   groups <- split(sig, interaction(sig$set, sig$gene, drop = TRUE))
   message(nrow(sig), ' significant pairs in ', length(groups), ' set x gene groups: one plink2 --clump run each')
   index <- parallel::mclapply(groups, \(x) mutate(clumpGene(x), set = x$set[1], gene = x$gene[1]),
