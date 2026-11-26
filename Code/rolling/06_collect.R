@@ -23,7 +23,15 @@ source(file.path(if (length(.f)) dirname(normalizePath(.f)) else '.', '00_config
 
 signals <- fread(paste0(CALL_DIR, 'independent.csv.gz'))
 files <- keep(list.files(REF_DIR, pattern = '\\.csv\\.gz$', full.names = TRUE), \(f) file.size(f) > 0)
-ref <- rbindlist(map(files, fread), fill = TRUE)
+# Keep only re-tests of the current signals while reading: a reference folder
+# shared with another calling rule (e.g. BH + clump) holds many more signals.
+keys <- unique(as.data.table(signals)[, .(centre, gene = as.character(gene), variant)])
+ref <- rbindlist(map(files, \(f) {
+  x <- fread(f)
+  if (!nrow(x)) return(NULL)
+  x[, gene := as.character(gene)][keys, on = c('centre', 'gene', 'variant'), nomatch = NULL]
+}), fill = TRUE)
+signals <- mutate(signals, gene = as.character(gene))
 fwrite(ref, paste0(OUT_DIR, 'referenceLong.csv.gz'))
 
 missing <- distinct(signals, centre) %>% crossing(ref = seq_len(N_REF)) %>%
