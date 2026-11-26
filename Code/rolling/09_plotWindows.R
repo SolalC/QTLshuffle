@@ -148,7 +148,7 @@ makeFigure <- function(correction) {
     labs(x = 'Window centre (h, DIP time)', y = 'Number of associations') + THEME
   pBar <- ggplot(bars, aes(centre, value, fill = series)) +
     geom_col(width = 0.85) +
-    X_TIME + scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 25), expand = expansion(0)) +
+    X_TIME + scale_y_continuous(breaks = seq(0, 100, 25), expand = expansion(0)) + coord_cartesian(ylim = c(0, 100)) +
     scale_fill_manual(values = COLOURS[barSeries], breaks = barSeries, name = NULL) +
     labs(x = 'Window centre (h, DIP time)', y = 'Associations (%)') + THEME
 
@@ -199,7 +199,7 @@ if (length(calFiles)) {
   pNull <- ggplot(byRef, aes(centre, pctPEmp05)) +
     geom_boxplot(aes(group = centre), outlier.size = 0.5, colour = 'grey50', fill = COLOURS[LAB_IND]) +
     geom_point(data = summ, aes(y = pctWindowPEmp05), colour = COLOURS[LAB_DEP], size = 2.5) +
-    X_TIME + scale_y_continuous(limits = c(0, 100)) +
+    X_TIME + coord_cartesian(ylim = c(0, 100)) +
     labs(x = 'Window centre (h, DIP time)', y = 'Signals with pEmp < 0.05 (%)',
          caption = 'Red: window. Grey: reference samples selected and tested like a window (no time structure).') +
     THEME
